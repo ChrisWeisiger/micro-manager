@@ -79,6 +79,8 @@ import org.micromanager.events.ShutdownCommencingEvent;
 import org.micromanager.IAcquisitionEngine2010;
 import org.micromanager.LogManager;
 import org.micromanager.MMListenerInterface;
+import org.micromanager.notifications.internal.DefaultNotificationManager;
+import org.micromanager.notifications.NotificationManager;
 import org.micromanager.internal.pluginmanagement.DefaultPluginManager;
 import org.micromanager.PluginManager;
 import org.micromanager.PositionList;
@@ -166,6 +168,7 @@ public class MMStudio implements Studio, CompatibilityInterface, PositionListMan
    private AcquisitionManager acquisitionManager_;
    private DataManager dataManager_;
    private DisplayManager displayManager_;
+   private DefaultNotificationManager notificationManager_;
    private DefaultPluginManager pluginManager_;
    private final SnapLiveManager snapLiveManager_;
    private final ToolsMenu toolsMenu_;
@@ -366,6 +369,7 @@ public class MMStudio implements Studio, CompatibilityInterface, PositionListMan
       displayManager_ = new DefaultDisplayManager(this);
 
       afMgr_ = new DefaultAutofocusManager(studio_);
+      notificationManager_ = new DefaultNotificationManager(this);
       pluginManager_ = new DefaultPluginManager(studio_, menuBar_);
 
       posList_ = new PositionList();
@@ -1602,6 +1606,16 @@ public class MMStudio implements Studio, CompatibilityInterface, PositionListMan
    @Override
    public QuickAccessManager getQuickAccessManager() {
       return quickAccess();
+   }
+
+   @Override
+   public NotificationManager notifier() {
+      return notificationManager_;
+   }
+
+   @Override
+   public NotificationManager getNotificationManager() {
+      return notifier();
    }
 
    @Override
