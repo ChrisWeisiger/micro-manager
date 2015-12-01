@@ -29,6 +29,7 @@ import org.micromanager.acquisition.AcquisitionManager;
 import org.micromanager.data.DataManager;
 import org.micromanager.display.DisplayManager;
 import org.micromanager.events.EventManager;
+import org.micromanager.notifications.NotificationManager;
 import org.micromanager.quickaccess.QuickAccessManager;
 
 
@@ -250,4 +251,18 @@ public interface Studio {
     * @return ShutterManager instance.
     */
    public ShutterManager getShutterManager();
+
+   /**
+    * Provides access to the NotificationManager for sending alerts to the
+    * user.
+    * @return NotificationManager instance.
+    */
+   public NotificationManager notifier();
+
+   /**
+    * Provides access to the NotificationManager for sending alerts to the
+    * user. Identical to notifier() except in name.
+    * @return NotificationManager instance.
+    */
+   public NotificationManager getNotificationManager();
 }
