@@ -45,8 +45,9 @@ public interface NotificationManager {
     * @param delaySec Time between heartbeat notifications, in seconds.
     * @param timeout Amount of time that must pass before the server decides
     *        that the program has erroneously stopped sending heartbeats.
-    * @throws IllegalArgumentException If delaySec is less than 10 seconds or
-    *         if timeout is less than 2 * delaySec.
+    * @throws IllegalArgumentException If delaySec is less than 10 seconds,
+    *         if timeout is less than 2 * delaySec, or if the key parameter
+    *         is already being used for heartbeats.
     */
    public void startHeartbeats(Object key, String text, int delaySec,
          int timeout);
@@ -54,7 +55,8 @@ public interface NotificationManager {
    /**
     * Stop sending heartbeat notifications to the server.
     * @param key Unique key object that was passed to startHeartbeats()
-    *        previously.
+    *        previously. Once this method completes, the key may be re-used by
+    *        startHeartbeats().
     */
    public void stopHeartbeats(Object key);
 }
