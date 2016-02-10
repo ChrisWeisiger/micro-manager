@@ -19,6 +19,17 @@
 
 package org.micromanager.notifications.internal;
 
+import java.io.BufferedReader;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.URLConnection;
+import java.net.URLEncoder;
+import java.util.HashMap;
+
 import org.micromanager.notifications.NotificationManager;
 
 import org.micromanager.PropertyMap;
@@ -28,13 +39,78 @@ import org.micromanager.Studio;
 public class DefaultNotificationManager implements NotificationManager {
    private Studio studio_;
 
+   private static final String DEFAULT_SERVER = "http://www.example.com";
+   private static final String CHARSET = "UTF-8";
+
+   private static final String USER_ID = "user ID for communicating with the notification server";
+   private static final String DEFAULT_USER_ID = "public";
+
+   private String userId_;
+   // Maps heartbeat key objects to unique IDs for those objects.
+   private HashMap<Object, String> heartbeatIds_;
+   // Auto-incrementing ID for heartbeat IDs.
+   private int curId_ = 0;
+
    public DefaultNotificationManager(Studio studio) {
       studio_ = studio;
+      userId_ = studio_.profile().getString(DefaultNotificationManager.class,
+            USER_ID, DEFAULT_USER_ID);
+      heartbeatIds_ = new HashMap<Object, String>();
+   }
+
+   // TODO: this should set the string into the global profile.
+   public void setUserID(String id) {
+      userId_ = id;
+      studio_.profile().setString(DefaultNotificationManager.class,
+            USER_ID, id);
+   }
+
+   /**
+    * Generate a request parameter string from the provided list of parameters
+    * and send it to the server.
+    */
+   private void sendRequest(String... args) {
+      if (args.length % 2 != 0) {
+         throw new IllegalArgumentException("Uneven parameter list");
+      }
+      String params = "";
+      try {
+         for (int i = 0; i < args.length; i += 2) {
+            params += String.format("%s%s=%s", i != 0 ? "&" : "",
+                  URLEncoder.encode(args[i], CHARSET),
+                  URLEncoder.encode(args[i + 1], CHARSET));
+         }
+      }
+      catch (UnsupportedEncodingException e) {
+         studio_.logs().logError(e, "Invalid character encoding " + CHARSET);
+         return;
+      }
+      String path = DEFAULT_SERVER + "?" + params;
+      try {
+         URL url = new URL(path);
+         URLConnection connection = url.openConnection();
+         connection.setRequestProperty("Accept-Charset", CHARSET);
+         BufferedReader reader = new BufferedReader(
+               new InputStreamReader(connection.getInputStream()));
+         while (true) {
+            String line = reader.readLine();
+            if (line == null) {
+               break;
+            }
+            studio_.logs().logError(line);
+         }
+      }
+      catch (MalformedURLException e) {
+         studio_.logs().logError(e, "Bad URL format " + path);
+      }
+      catch (IOException e) {
+         studio_.logs().logError(e, "Error reading response from server");
+      }
    }
 
    @Override
    public void sendTextAlert(String text) {
-      studio_.logs().logError("Sending text " + text);
+      sendRequest("textAlert", text);
    }
 
    @Override
@@ -46,11 +122,21 @@ public class DefaultNotificationManager implements NotificationManager {
       if (timeout < delaySec * 2) {
          throw new IllegalArgumentException("Heartbeat timeout " + timeout + " is too short; must be at least 2x delay of " + delaySec);
       }
-      studio_.logs().logError(String.format("Starting heartbeats from %s with failure text [%s], delay %d, timeout %d", key, text, delaySec, timeout));
+      if (heartbeatIds_.containsKey(key)) {
+         throw new IllegalArgumentException("Heartbeat key " + key + " is already in use");
+      }
+      heartbeatIds_.put(key, Integer.toString(curId_++));
+      sendRequest("startHeartbeat", heartbeatIds_.get(key),
+            "text", text, "delay", Integer.toString(delaySec),
+            "timeout", Integer.toString(timeout));
    }
 
    @Override
    public void stopHeartbeats(Object key) {
-      studio_.logs().logError("Stopping heartbeats from " + key);
+      if (!heartbeatIds_.containsKey(key)) {
+         throw new IllegalArgumentException("Heartbeat key " + key + " is not in use.");
+      }
+      sendRequest("stopHeartbeat", heartbeatIds_.get(key));
+      heartbeatIds_.remove(key);
    }
 }
