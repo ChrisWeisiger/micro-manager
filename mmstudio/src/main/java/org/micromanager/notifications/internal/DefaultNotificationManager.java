@@ -28,6 +28,8 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLConnection;
 import java.net.URLEncoder;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 
 import org.micromanager.notifications.NotificationManager;
@@ -100,16 +102,22 @@ public class DefaultNotificationManager implements NotificationManager {
     * Generate a request parameter string from the provided list of parameters
     * and send it to the server.
     */
-   private void sendRequest(String... args) {
-      if (args.length % 2 != 0) {
+   private void sendRequest(String... argsArray) {
+      if (userId_ == null) {
+         throw new RuntimeException("User ID not set");
+      }
+      if (argsArray.length % 2 != 0) {
          throw new IllegalArgumentException("Uneven parameter list");
       }
+      ArrayList<String> args = new ArrayList<String>(Arrays.asList(argsArray));
+      args.add("userID");
+      args.add(userId_);
       String params = "";
       try {
-         for (int i = 0; i < args.length; i += 2) {
+         for (int i = 0; i < args.size(); i += 2) {
             params += String.format("%s%s=%s", i != 0 ? "&" : "",
-                  URLEncoder.encode(args[i], CHARSET),
-                  URLEncoder.encode(args[i + 1], CHARSET));
+                  URLEncoder.encode(args.get(i), CHARSET),
+                  URLEncoder.encode(args.get(i + 1), CHARSET));
          }
       }
       catch (UnsupportedEncodingException e) {
