@@ -45,17 +45,48 @@ public class DefaultNotificationManager implements NotificationManager {
    private static final String USER_ID = "user ID for communicating with the notification server";
    private static final String DEFAULT_USER_ID = "public";
 
+   /**
+    * This class is responsible for sending heartbeats to the server.
+    */
+   private class Heartbeater extends Thread {
+      private Object key_;
+      private int id_;
+      private int delaySec_;
+      public Heartbeater(Object key, int id, int delaySec) {
+         key_ = key;
+         id_ = id;
+         delaySec_ = delaySec;
+      }
+
+      @Override
+      public void run() {
+         while(!Thread.interrupted()) {
+            try {
+               Thread.sleep(delaySec_ * 1000);
+            }
+            catch (InterruptedException e) {
+               return;
+            }
+            sendRequest("heartbeat", Integer.toString(id_));
+         }
+      }
+
+      public int getID() {
+         return id_;
+      }
+   }
+
    private String userId_;
-   // Maps heartbeat key objects to unique IDs for those objects.
-   private HashMap<Object, String> heartbeatIds_;
    // Auto-incrementing ID for heartbeat IDs.
    private int curId_ = 0;
+   // Maps key objects to the associated heartbeat threads.
+   private HashMap<Object, Heartbeater> heartbeats_;
 
    public DefaultNotificationManager(Studio studio) {
       studio_ = studio;
       userId_ = studio_.profile().getString(DefaultNotificationManager.class,
             USER_ID, DEFAULT_USER_ID);
-      heartbeatIds_ = new HashMap<Object, String>();
+      heartbeats_ = new HashMap<Object, Heartbeater>();
    }
 
    // TODO: this should set the string into the global profile.
@@ -122,21 +153,25 @@ public class DefaultNotificationManager implements NotificationManager {
       if (timeout < delaySec * 2) {
          throw new IllegalArgumentException("Heartbeat timeout " + timeout + " is too short; must be at least 2x delay of " + delaySec);
       }
-      if (heartbeatIds_.containsKey(key)) {
+      if (heartbeats_.containsKey(key)) {
          throw new IllegalArgumentException("Heartbeat key " + key + " is already in use");
       }
-      heartbeatIds_.put(key, Integer.toString(curId_++));
-      sendRequest("startHeartbeat", heartbeatIds_.get(key),
+      Heartbeater beater = new Heartbeater(key, curId_++, delaySec);
+      heartbeats_.put(key, beater);
+      sendRequest("startHeartbeat", Integer.toString(beater.getID()),
             "text", text, "delay", Integer.toString(delaySec),
             "timeout", Integer.toString(timeout));
+      beater.start();
    }
 
    @Override
    public void stopHeartbeats(Object key) {
-      if (!heartbeatIds_.containsKey(key)) {
+      if (!heartbeats_.containsKey(key)) {
          throw new IllegalArgumentException("Heartbeat key " + key + " is not in use.");
       }
-      sendRequest("stopHeartbeat", heartbeatIds_.get(key));
-      heartbeatIds_.remove(key);
+      sendRequest("stopHeartbeat",
+            Integer.toString(heartbeats_.get(key).getID()));
+      heartbeats_.get(key).interrupt();
+      heartbeats_.remove(key);
    }
 }
