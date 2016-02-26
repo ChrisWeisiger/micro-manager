@@ -44,7 +44,8 @@ public interface NotificationManager {
     * @param timeoutMinutes Amount of time that must pass before the server
     *        decides that the thread has erroneously stopped sending
     *        heartbeats, in minutes. The minimum allowed value is 2.
-    * @throws IllegalArgumentException If timeout is less than 2.
+    * @throws IllegalArgumentException If timeout is less than 2, or if the
+    *        thread is already being monitored.
     */
    public void startThreadHeartbeats(String text, int timeoutMinutes);
 
