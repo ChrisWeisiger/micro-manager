@@ -82,10 +82,13 @@ public class DefaultNotificationManager implements NotificationManager {
          throw new IllegalArgumentException("Heartbeat timeout " + timeoutMinutes + " is too short");
       }
       Thread thread = Thread.currentThread();
+      if (monitoredThreads_.contains(thread)) {
+         throw new IllegalArgumentException("Thread " + thread + " is already being monitored");
+      }
       synchronized(monitoredThreads_) {
          monitoredThreads_.add(thread);
       }
-      sendRequest("startHeartbeat", Integer.toString(thread.hashCode()),
+      sendRequest("startHeartbeat", Long.toString(thread.getId()),
             "text", text, "timeout", Integer.toString(timeoutMinutes));
       if (threadMonitor_ == null) {
          // Time to start monitoring.
@@ -113,7 +116,7 @@ public class DefaultNotificationManager implements NotificationManager {
             }
          }
       }
-      sendRequest("stopHeartbeat", Integer.toString(thread.hashCode()));
+      sendRequest("stopHeartbeat", Long.toString(thread.getId()));
    }
 
    @Override
@@ -153,13 +156,13 @@ public class DefaultNotificationManager implements NotificationManager {
             uniquifiedHeartbeats.add(thread);
          }
          for (Thread thread : uniquifiedHeartbeats) {
-            sendRequest("heartbeat", Integer.toString(thread.hashCode()));
+            sendRequest("heartbeat", Long.toString(thread.getId()));
          }
          // Check for threads that have died.
          synchronized(monitoredThreads_) {
             for (Thread thread : new ArrayList<Thread>(monitoredThreads_)) {
                if (!thread.isAlive()) {
-                  sendRequest("heartbeatFailure", Integer.toString(thread.hashCode()));
+                  sendRequest("heartbeatFailure", Long.toString(thread.getId()));
                   monitoredThreads_.remove(thread);
                }
             }
