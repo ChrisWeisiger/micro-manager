@@ -43,12 +43,12 @@ import org.micromanager.Studio;
 public class DefaultNotificationManager implements NotificationManager {
    private Studio studio_;
 
-   private static final String DEFAULT_SERVER = "http://www.example.com";
+   private static final String DEFAULT_SERVER = "http://derakon.mooo.com/~chriswei/cgi-bin/index.py";
    private static final String CHARSET = "UTF-8";
 
    private static final String USER_ID = "user ID for communicating with the notification server";
    private static final String DEFAULT_USER_ID = "public";
-   private static final Integer MONITOR_SLEEP_TIME = 30000;
+   private static final Integer MONITOR_SLEEP_TIME = 3000;
 
    // Part of authentication to the server.
    private String userId_;
@@ -57,11 +57,22 @@ public class DefaultNotificationManager implements NotificationManager {
    // Queue of incoming heartbeats to process.
    private final LinkedBlockingQueue<Thread> heartbeats_ = new LinkedBlockingQueue<Thread>();
    private Thread threadMonitor_ = null;
+   private String macAddress_ = "";
 
    public DefaultNotificationManager(Studio studio) {
       studio_ = studio;
       userId_ = studio_.profile().getString(DefaultNotificationManager.class,
             USER_ID, DEFAULT_USER_ID);
+      mmcorej.StrVector addrs = studio_.core().getMACAddresses();
+      if (addrs.size() > 0) {
+         String addr = addrs.get(0);
+         if (addr.length() > 0) {
+            macAddress_ = addr;
+         }
+      }
+      if (macAddress_.equals("")) {
+         studio_.logs().logError("Unable to determine MAC address.");
+      }
    }
 
    // TODO: this should set the string into the global profile.
@@ -184,6 +195,8 @@ public class DefaultNotificationManager implements NotificationManager {
       ArrayList<String> args = new ArrayList<String>(Arrays.asList(argsArray));
       args.add("userID");
       args.add(userId_);
+      args.add("systemID");
+      args.add(macAddress_);
       String params = "";
       try {
          for (int i = 0; i < args.size(); i += 2) {
