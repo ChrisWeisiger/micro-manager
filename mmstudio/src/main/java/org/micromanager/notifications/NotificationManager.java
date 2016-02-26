@@ -35,28 +35,32 @@ public interface NotificationManager {
    public void sendTextAlert(String text);
 
    /**
-    * Start sending heartbeat notifications to the server at the specified
-    * frequency, and with the specified timeout. If the server fails to detect
-    * a heartbeat notification within the given timeout, then it will send
-    * an alert to the user.
-    * @param key Unique key object used to identify the "owner" of these
-    *        heartbeats, and also used by stopHeartbeats().
+    * Enabled thread monitoring for the current thread, and allow sending
+    * heartbeat notifications to the server, with the specified timeout. If the
+    * thread stops without having called stopHeartbeats(), or the server fails
+    * to detect a heartbeat notification within the given timeout, then it will
+    * send an alert to the user.
     * @param text Text of the alert to send if heartbeat notifications fail.
-    * @param delaySec Time between heartbeat notifications, in seconds.
-    * @param timeout Amount of time that must pass before the server decides
-    *        that the program has erroneously stopped sending heartbeats.
-    * @throws IllegalArgumentException If delaySec is less than 10 seconds,
-    *         if timeout is less than 2 * delaySec, or if the key parameter
-    *         is already being used for heartbeats.
+    * @param timeoutMinutes Amount of time that must pass before the server
+    *        decides that the thread has erroneously stopped sending
+    *        heartbeats, in minutes. The minimum allowed value is 2.
+    * @throws IllegalArgumentException If timeout is less than 2.
     */
-   public void startHeartbeats(Object key, String text, int delaySec,
-         int timeout);
+   public void startThreadHeartbeats(String text, int timeoutMinutes);
 
    /**
-    * Stop sending heartbeat notifications to the server.
-    * @param key Unique key object that was passed to startHeartbeats()
-    *        previously. Once this method completes, the key may be re-used by
-    *        startHeartbeats().
+    * Stop sending heartbeat notifications to the server for the current
+    * thread.
     */
-   public void stopHeartbeats(Object key);
+   public void stopThreadHeartbeats();
+
+   /**
+    * Send a heartbeat from the current thread. You may call this method freely
+    * (as long as the thread has previously had startHeartbeats() called for
+    * it), but Micro-Manager will throttle heartbeat notifications, so there is
+    * no guarantee that the heartbeat will be sent to the server immediately.
+    * @throws IllegalArgumentException if the current thread is not set up for
+    *         heartbeats.
+    */
+   public void sendThreadHeartbeat();
 }

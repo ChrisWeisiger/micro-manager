@@ -30,7 +30,9 @@ import java.net.URLConnection;
 import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.HashMap;
+import java.util.HashSet;
 
 import org.micromanager.notifications.NotificationManager;
 
@@ -46,49 +48,20 @@ public class DefaultNotificationManager implements NotificationManager {
 
    private static final String USER_ID = "user ID for communicating with the notification server";
    private static final String DEFAULT_USER_ID = "public";
+   private static final Integer MONITOR_SLEEP_TIME = 30000;
 
-   /**
-    * This class is responsible for sending heartbeats to the server.
-    */
-   private class Heartbeater extends Thread {
-      private Object key_;
-      private int id_;
-      private int delaySec_;
-      public Heartbeater(Object key, int id, int delaySec) {
-         key_ = key;
-         id_ = id;
-         delaySec_ = delaySec;
-      }
-
-      @Override
-      public void run() {
-         while(!Thread.interrupted()) {
-            try {
-               Thread.sleep(delaySec_ * 1000);
-            }
-            catch (InterruptedException e) {
-               return;
-            }
-            sendRequest("heartbeat", Integer.toString(id_));
-         }
-      }
-
-      public int getID() {
-         return id_;
-      }
-   }
-
+   // Part of authentication to the server.
    private String userId_;
-   // Auto-incrementing ID for heartbeat IDs.
-   private int curId_ = 0;
-   // Maps key objects to the associated heartbeat threads.
-   private HashMap<Object, Heartbeater> heartbeats_;
+   // Threads that we are currently monitoring.
+   private final HashSet<Thread> monitoredThreads_ = new HashSet<Thread>();
+   // Queue of incoming heartbeats to process.
+   private final LinkedBlockingQueue<Thread> heartbeats_ = new LinkedBlockingQueue<Thread>();
+   private Thread threadMonitor_ = null;
 
    public DefaultNotificationManager(Studio studio) {
       studio_ = studio;
       userId_ = studio_.profile().getString(DefaultNotificationManager.class,
             USER_ID, DEFAULT_USER_ID);
-      heartbeats_ = new HashMap<Object, Heartbeater>();
    }
 
    // TODO: this should set the string into the global profile.
@@ -98,9 +71,105 @@ public class DefaultNotificationManager implements NotificationManager {
             USER_ID, id);
    }
 
+   @Override
+   public void sendTextAlert(String text) {
+      sendRequest("textAlert", text);
+   }
+
+   @Override
+   public void startThreadHeartbeats(String text, int timeoutMinutes) {
+      if (timeoutMinutes < 2) {
+         throw new IllegalArgumentException("Heartbeat timeout " + timeoutMinutes + " is too short");
+      }
+      Thread thread = Thread.currentThread();
+      synchronized(monitoredThreads_) {
+         monitoredThreads_.add(thread);
+      }
+      sendRequest("startHeartbeat", Integer.toString(thread.hashCode()),
+            "text", text, "timeout", Integer.toString(timeoutMinutes));
+      if (threadMonitor_ == null) {
+         // Time to start monitoring.
+         restartMonitor();
+      }
+   }
+
+   @Override
+   public void stopThreadHeartbeats() {
+      Thread thread = Thread.currentThread();
+      if (!monitoredThreads_.contains(thread)) {
+         throw new IllegalArgumentException("Thread " + thread + " is not currenty sending heartbeats.");
+      }
+      synchronized(monitoredThreads_) {
+         monitoredThreads_.remove(thread);
+         if (monitoredThreads_.isEmpty()) {
+            // Stop general monitoring, and wait for the thread to exit.
+            try {
+               threadMonitor_.interrupt();
+               threadMonitor_.join();
+               threadMonitor_ = null;
+            }
+            catch (InterruptedException e) {
+               studio_.logs().logError(e, "Interrupted while waiting for threadMonitor to end.");
+            }
+         }
+      }
+      sendRequest("stopHeartbeat", Integer.toString(thread.hashCode()));
+   }
+
+   @Override
+   public void sendThreadHeartbeat() {
+      heartbeats_.offer(Thread.currentThread());
+   }
+
+   private void restartMonitor() {
+      threadMonitor_ = new Thread(new Runnable() {
+         @Override
+         public void run() {
+            monitorThreads();
+         }
+      }, "Heartbeat thread monitor");
+      threadMonitor_.start();
+   }
+
    /**
-    * Generate a request parameter string from the provided list of parameters
-    * and send it to the server.
+    * This method runs in a separate thread, and does two things:
+    * - listen for heartbeats in the heartbeats_ queue, periodically sending
+    *   them to the server
+    * - check the monitored threads to see if any of them have terminated
+    *   without having called stopThreadHeartbeats.
+    */
+   private void monitorThreads() {
+      while (true) {
+         try {
+            Thread.sleep(MONITOR_SLEEP_TIME);
+         }
+         catch (InterruptedException e) {
+            return;
+         }
+         // Eliminate redundant heartbeats.
+         HashSet<Thread> uniquifiedHeartbeats = new HashSet<Thread>();
+         while (!heartbeats_.isEmpty()) {
+            Thread thread = heartbeats_.poll();
+            uniquifiedHeartbeats.add(thread);
+         }
+         for (Thread thread : uniquifiedHeartbeats) {
+            sendRequest("heartbeat", Integer.toString(thread.hashCode()));
+         }
+         // Check for threads that have died.
+         synchronized(monitoredThreads_) {
+            for (Thread thread : new ArrayList<Thread>(monitoredThreads_)) {
+               if (!thread.isAlive()) {
+                  sendRequest("heartbeatFailure", Integer.toString(thread.hashCode()));
+                  monitoredThreads_.remove(thread);
+               }
+            }
+         }
+      }
+   }
+
+   /**
+    * Internal utility function: generate a request parameter string from the
+    * provided list of parameters and send it to the server.
     */
    private void sendRequest(String... argsArray) {
       if (userId_ == null) {
@@ -145,41 +214,5 @@ public class DefaultNotificationManager implements NotificationManager {
       catch (IOException e) {
          studio_.logs().logError(e, "Error reading response from server");
       }
-   }
-
-   @Override
-   public void sendTextAlert(String text) {
-      sendRequest("textAlert", text);
-   }
-
-   @Override
-   public void startHeartbeats(Object key, String text, int delaySec,
-         int timeout) {
-      if (delaySec < 10) {
-         throw new IllegalArgumentException("Heartbeat delay " + delaySec + " is too short; must be at least 10s.");
-      }
-      if (timeout < delaySec * 2) {
-         throw new IllegalArgumentException("Heartbeat timeout " + timeout + " is too short; must be at least 2x delay of " + delaySec);
-      }
-      if (heartbeats_.containsKey(key)) {
-         throw new IllegalArgumentException("Heartbeat key " + key + " is already in use");
-      }
-      Heartbeater beater = new Heartbeater(key, curId_++, delaySec);
-      heartbeats_.put(key, beater);
-      sendRequest("startHeartbeat", Integer.toString(beater.getID()),
-            "text", text, "delay", Integer.toString(delaySec),
-            "timeout", Integer.toString(timeout));
-      beater.start();
-   }
-
-   @Override
-   public void stopHeartbeats(Object key) {
-      if (!heartbeats_.containsKey(key)) {
-         throw new IllegalArgumentException("Heartbeat key " + key + " is not in use.");
-      }
-      sendRequest("stopHeartbeat",
-            Integer.toString(heartbeats_.get(key).getID()));
-      heartbeats_.get(key).interrupt();
-      heartbeats_.remove(key);
    }
 }
