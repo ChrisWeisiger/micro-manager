@@ -47,22 +47,27 @@ public class DefaultNotificationManager implements NotificationManager {
    private static final String CHARSET = "UTF-8";
 
    private static final String USER_ID = "user ID for communicating with the notification server";
+   private static final String AUTH_KEY = "authentication key for communicating with the notification server";
    private static final String DEFAULT_USER_ID = "public";
+   private static final String DEFAULT_AUTH_KEY = "auth";
+
    private static final Integer MONITOR_SLEEP_TIME = 3000;
 
    // Part of authentication to the server.
    private String userId_;
+   private String macAddress_ = "";
    // Threads that we are currently monitoring.
    private final HashSet<Thread> monitoredThreads_ = new HashSet<Thread>();
    // Queue of incoming heartbeats to process.
    private final LinkedBlockingQueue<Thread> heartbeats_ = new LinkedBlockingQueue<Thread>();
    private Thread threadMonitor_ = null;
-   private String macAddress_ = "";
 
    public DefaultNotificationManager(Studio studio) {
       studio_ = studio;
       userId_ = studio_.profile().getString(DefaultNotificationManager.class,
             USER_ID, DEFAULT_USER_ID);
+      authKey_ = studio_.profile().getString(DefaultNotificationManager.class,
+            AUTH_KEY, DEFAULT_AUTH_KEY);
       mmcorej.StrVector addrs = studio_.core().getMACAddresses();
       if (addrs.size() > 0) {
          String addr = addrs.get(0);
@@ -75,16 +80,19 @@ public class DefaultNotificationManager implements NotificationManager {
       }
    }
 
-   // TODO: this should set the string into the global profile.
-   public void setUserID(String id) {
-      userId_ = id;
+   // TODO: this should set the strings into the global profile.
+   public void setIDs(String userID, String authKey) {
+      userId_ = userID;
+      authKey_ = authKey;
       studio_.profile().setString(DefaultNotificationManager.class,
-            USER_ID, id);
+            USER_ID, userID);
+      studio_.profile().setString(DefaultNotificationManager.class,
+            AUTH_KEY, authKey);
    }
 
    @Override
    public void sendTextAlert(String text) {
-      sendRequest("textAlert", text);
+      sendRequest("action", "textAlert", "message", text);
    }
 
    @Override
@@ -99,8 +107,9 @@ public class DefaultNotificationManager implements NotificationManager {
       synchronized(monitoredThreads_) {
          monitoredThreads_.add(thread);
       }
-      sendRequest("startHeartbeat", Long.toString(thread.getId()),
-            "text", text, "timeout", Integer.toString(timeoutMinutes));
+      sendRequest("action", "startHeartbeat",
+            "notificationID", Long.toString(thread.getId()),
+            "message", text, "timeout", Integer.toString(timeoutMinutes));
       if (threadMonitor_ == null) {
          // Time to start monitoring.
          restartMonitor();
@@ -127,7 +136,8 @@ public class DefaultNotificationManager implements NotificationManager {
             }
          }
       }
-      sendRequest("stopHeartbeat", Long.toString(thread.getId()));
+      sendRequest("action", "stopHeartbeat",
+            "notificationID", Long.toString(thread.getId()));
    }
 
    @Override
@@ -167,13 +177,15 @@ public class DefaultNotificationManager implements NotificationManager {
             uniquifiedHeartbeats.add(thread);
          }
          for (Thread thread : uniquifiedHeartbeats) {
-            sendRequest("heartbeat", Long.toString(thread.getId()));
+            sendRequest("action", "heartbeat",
+                  "notificationID", Long.toString(thread.getId()));
          }
          // Check for threads that have died.
          synchronized(monitoredThreads_) {
             for (Thread thread : new ArrayList<Thread>(monitoredThreads_)) {
                if (!thread.isAlive()) {
-                  sendRequest("heartbeatFailure", Long.toString(thread.getId()));
+                  sendRequest("action", "heartbeatFailure",
+                        "notificationID", Long.toString(thread.getId()));
                   monitoredThreads_.remove(thread);
                }
             }
@@ -197,6 +209,8 @@ public class DefaultNotificationManager implements NotificationManager {
       args.add(userId_);
       args.add("systemID");
       args.add(macAddress_);
+      args.add("authKey");
+      args.add(authKey_);
       String params = "";
       try {
          for (int i = 0; i < args.size(); i += 2) {
