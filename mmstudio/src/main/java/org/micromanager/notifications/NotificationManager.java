@@ -19,6 +19,8 @@
 
 package org.micromanager.notifications;
 
+import java.io.IOException;
+
 import org.micromanager.PropertyMap;
 
 /**
@@ -31,8 +33,9 @@ public interface NotificationManager {
     * Send a text notification to the current user. This requires the user
     * to have provided appropriate contact information via the GUI.
     * @param text String of the text to send to the user.
+    * @throws IOException if there was an error communicating with the server.
     */
-   public void sendTextAlert(String text);
+   public void sendTextAlert(String text) throws IOException;
 
    /**
     * Enabled thread monitoring for the current thread, and allow sending
@@ -46,14 +49,16 @@ public interface NotificationManager {
     *        heartbeats, in minutes. The minimum allowed value is 2.
     * @throws IllegalArgumentException If timeout is less than 2, or if the
     *        thread is already being monitored.
+    * @throws IOException if there was an error communicating with the server.
     */
-   public void startThreadHeartbeats(String text, int timeoutMinutes);
+   public void startThreadHeartbeats(String text, int timeoutMinutes) throws IOException;
 
    /**
     * Stop sending heartbeat notifications to the server for the current
     * thread.
+    * @throws IOException if there was an error communicating with the server.
     */
-   public void stopThreadHeartbeats();
+   public void stopThreadHeartbeats() throws IOException;
 
    /**
     * Send a heartbeat from the current thread. You may call this method freely
@@ -62,6 +67,7 @@ public interface NotificationManager {
     * no guarantee that the heartbeat will be sent to the server immediately.
     * @throws IllegalArgumentException if the current thread is not set up for
     *         heartbeats.
+    * @throws IOException if there was an error communicating with the server.
     */
-   public void sendThreadHeartbeat();
+   public void sendThreadHeartbeat() throws IOException;
 }
