@@ -23,7 +23,9 @@ import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
+import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLConnection;
@@ -34,6 +36,9 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.HashMap;
 import java.util.HashSet;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+
 import org.micromanager.notifications.NotificationManager;
 
 import org.micromanager.PropertyMap;
@@ -43,19 +48,24 @@ import org.micromanager.Studio;
 public class DefaultNotificationManager implements NotificationManager {
    private Studio studio_;
 
-   private static final String DEFAULT_SERVER = "http://derakon.mooo.com/~chriswei/cgi-bin/index.py";
+   private static final String DEFAULT_SERVER = "http://127.0.0.1:8000";
    private static final String CHARSET = "UTF-8";
 
-   private static final String USER_ID = "user ID for communicating with the notification server";
+   private static final String SYSTEM_ID = "system ID for communicating with the notification server";
    private static final String AUTH_KEY = "authentication key for communicating with the notification server";
-   private static final String DEFAULT_USER_ID = "public";
-   private static final String DEFAULT_AUTH_KEY = "auth";
+   private static final int DEFAULT_SYSTEM_ID = -1;
+   private static final String DEFAULT_AUTH_KEY = "hello123";
+   private static final String CONTACT_EMAIL = "email address to send notifications to";
+   private static final String CONTACT_CELLPHONE = "cellphone to send notifications to";
 
    private static final Integer MONITOR_SLEEP_TIME = 3000;
 
    // Part of authentication to the server.
-   private String userId_;
+   private Integer systemId_;
+   private String authKey_;
    private String macAddress_ = "";
+   private String contactEmail_ = "";
+   private String contactCellphone_ = "";
    // Threads that we are currently monitoring.
    private final HashSet<Thread> monitoredThreads_ = new HashSet<Thread>();
    // Queue of incoming heartbeats to process.
@@ -64,10 +74,14 @@ public class DefaultNotificationManager implements NotificationManager {
 
    public DefaultNotificationManager(Studio studio) {
       studio_ = studio;
-      userId_ = studio_.profile().getString(DefaultNotificationManager.class,
-            USER_ID, DEFAULT_USER_ID);
+      systemId_ = studio_.profile().getInt(DefaultNotificationManager.class,
+            SYSTEM_ID, DEFAULT_SYSTEM_ID);
       authKey_ = studio_.profile().getString(DefaultNotificationManager.class,
             AUTH_KEY, DEFAULT_AUTH_KEY);
+      contactEmail_ = studio_.profile().getString(
+               DefaultNotificationManager.class, CONTACT_EMAIL, "");
+      contactCellphone_ = studio_.profile().getString(
+               DefaultNotificationManager.class, CONTACT_CELLPHONE, "");
       mmcorej.StrVector addrs = studio_.core().getMACAddresses();
       if (addrs.size() > 0) {
          String addr = addrs.get(0);
@@ -81,22 +95,38 @@ public class DefaultNotificationManager implements NotificationManager {
    }
 
    // TODO: this should set the strings into the global profile.
-   public void setIDs(String userID, String authKey) {
-      userId_ = userID;
-      authKey_ = authKey;
+   public boolean setIDs(int systemId, String authKey) throws IOException {
+      boolean result = sendRequest("/notify/acquireKey", "auth_key", authKey);
+      if (result) {
+         systemId_ = systemId;
+         authKey_ = authKey;
+         studio_.profile().setInt(DefaultNotificationManager.class,
+               SYSTEM_ID, systemId);
+         studio_.profile().setString(DefaultNotificationManager.class,
+               AUTH_KEY, authKey);
+      }
+      return result;
+   }
+
+   public void setContactCellphone(String cellphone) {
+      contactCellphone_ = cellphone;
       studio_.profile().setString(DefaultNotificationManager.class,
-            USER_ID, userID);
+            CONTACT_CELLPHONE, cellphone);
+   }
+
+   public void setContactEmail(String email) {
+      contactEmail_ = email;
       studio_.profile().setString(DefaultNotificationManager.class,
-            AUTH_KEY, authKey);
+            CONTACT_EMAIL, email);
    }
 
    @Override
-   public void sendTextAlert(String text) {
-      sendRequest("action", "textAlert", "message", text);
+   public void sendTextAlert(String text) throws IOException {
+      studio_.logs().showError("Not yet implemented");
    }
 
    @Override
-   public void startThreadHeartbeats(String text, int timeoutMinutes) {
+   public void startThreadHeartbeats(String text, int timeoutMinutes) throws IOException {
       if (timeoutMinutes < 2) {
          throw new IllegalArgumentException("Heartbeat timeout " + timeoutMinutes + " is too short");
       }
@@ -107,9 +137,11 @@ public class DefaultNotificationManager implements NotificationManager {
       synchronized(monitoredThreads_) {
          monitoredThreads_.add(thread);
       }
-      sendRequest("action", "startHeartbeat",
-            "notificationID", Long.toString(thread.getId()),
-            "message", text, "timeout", Integer.toString(timeoutMinutes));
+      sendRequest("/notify/startMonitor",
+            "monitor_id", Long.toString(thread.getId()),
+            "failure_text", text, "email", contactEmail_,
+            "cellphone", contactCellphone_,
+            "timeout_minutes", Integer.toString(timeoutMinutes));
       if (threadMonitor_ == null) {
          // Time to start monitoring.
          restartMonitor();
@@ -117,7 +149,7 @@ public class DefaultNotificationManager implements NotificationManager {
    }
 
    @Override
-   public void stopThreadHeartbeats() {
+   public void stopThreadHeartbeats() throws IOException {
       Thread thread = Thread.currentThread();
       if (!monitoredThreads_.contains(thread)) {
          throw new IllegalArgumentException("Thread " + thread + " is not currenty sending heartbeats.");
@@ -136,8 +168,8 @@ public class DefaultNotificationManager implements NotificationManager {
             }
          }
       }
-      sendRequest("action", "stopHeartbeat",
-            "notificationID", Long.toString(thread.getId()));
+      sendRequest("/notify/stopMonitor",
+            "monitor_id", Long.toString(thread.getId()));
    }
 
    @Override
@@ -177,16 +209,26 @@ public class DefaultNotificationManager implements NotificationManager {
             uniquifiedHeartbeats.add(thread);
          }
          for (Thread thread : uniquifiedHeartbeats) {
-            sendRequest("action", "heartbeat",
-                  "notificationID", Long.toString(thread.getId()));
+            try {
+               sendRequest("/notify/heartbeat",
+                     "monitor_id", Long.toString(thread.getId()));
+            }
+            catch (IOException e) {
+               studio_.logs().logError(e, "Error sending heartbeat for " + thread.getId());
+            }
          }
          // Check for threads that have died.
          synchronized(monitoredThreads_) {
             for (Thread thread : new ArrayList<Thread>(monitoredThreads_)) {
                if (!thread.isAlive()) {
-                  sendRequest("action", "heartbeatFailure",
-                        "notificationID", Long.toString(thread.getId()));
-                  monitoredThreads_.remove(thread);
+                  try {
+                     sendRequest("/notify/monitorFailure",
+                           "monitor_id", Long.toString(thread.getId()));
+                     monitoredThreads_.remove(thread);
+                  }
+                  catch (IOException e) {
+                     studio_.logs().logError("Error sending thread death for " + thread.getId());
+                  }
                }
             }
          }
@@ -197,39 +239,50 @@ public class DefaultNotificationManager implements NotificationManager {
     * Internal utility function: generate a request parameter string from the
     * provided list of parameters and send it to the server.
     */
-   private void sendRequest(String... argsArray) {
-      if (userId_ == null) {
-         throw new RuntimeException("User ID not set");
+   private boolean sendRequest(String path, String... argsArray) throws IOException {
+      if (systemId_ == null) {
+         throw new RuntimeException("System ID not set");
       }
       if (argsArray.length % 2 != 0) {
          throw new IllegalArgumentException("Uneven parameter list");
       }
+      JSONObject params = new JSONObject();
       ArrayList<String> args = new ArrayList<String>(Arrays.asList(argsArray));
-      args.add("userID");
-      args.add(userId_);
-      args.add("systemID");
-      args.add(macAddress_);
-      args.add("authKey");
-      args.add(authKey_);
-      String params = "";
+      args.addAll(new ArrayList<String>(Arrays.asList(new String[] {
+         "auth_key", authKey_, "mac_address", macAddress_,
+      })));
       try {
+         // This one parameter is an int, not a string.
+         params.put(URLEncoder.encode("system", CHARSET), systemId_);
          for (int i = 0; i < args.size(); i += 2) {
-            params += String.format("%s%s=%s", i != 0 ? "&" : "",
-                  URLEncoder.encode(args.get(i), CHARSET),
+            params.put(URLEncoder.encode(args.get(i), CHARSET),
                   URLEncoder.encode(args.get(i + 1), CHARSET));
          }
       }
       catch (UnsupportedEncodingException e) {
          studio_.logs().logError(e, "Invalid character encoding " + CHARSET);
-         return;
+         return false;
       }
-      String path = DEFAULT_SERVER + "?" + params;
+      catch (JSONException e) {
+         studio_.logs().logError(e, "Error creating JSON parameters list");
+         return false;
+      }
       try {
-         URL url = new URL(path);
-         URLConnection connection = url.openConnection();
+         URL url = new URL(DEFAULT_SERVER + path);
+         HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+         connection.setRequestProperty("Content-Type", "application/json");
          connection.setRequestProperty("Accept-Charset", CHARSET);
+         connection.setDoOutput(true);
+         OutputStream out = connection.getOutputStream();
+         out.write(params.toString().getBytes(CHARSET));
+         // Actually perform the post.
+         connection.getResponseCode();
+         InputStream stream = connection.getErrorStream();
+         if (stream == null) {
+            stream = connection.getInputStream();
+         }
          BufferedReader reader = new BufferedReader(
-               new InputStreamReader(connection.getInputStream()));
+               new InputStreamReader(stream));
          while (true) {
             String line = reader.readLine();
             if (line == null) {
@@ -237,12 +290,11 @@ public class DefaultNotificationManager implements NotificationManager {
             }
             studio_.logs().logError(line);
          }
+         return true;
       }
       catch (MalformedURLException e) {
          studio_.logs().logError(e, "Bad URL format " + path);
-      }
-      catch (IOException e) {
-         studio_.logs().logError(e, "Error reading response from server");
+         return false;
       }
    }
 }
