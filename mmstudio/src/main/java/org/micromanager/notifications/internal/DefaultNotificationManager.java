@@ -60,6 +60,7 @@ public class DefaultNotificationManager implements NotificationManager {
 
    private static final Integer MONITOR_SLEEP_TIME = 3000;
 
+   private boolean isEnabled_ = false;
    // Part of authentication to the server.
    private Integer systemId_;
    private String authKey_;
@@ -78,6 +79,24 @@ public class DefaultNotificationManager implements NotificationManager {
             SYSTEM_ID, DEFAULT_SYSTEM_ID);
       authKey_ = studio_.profile().getString(DefaultNotificationManager.class,
             AUTH_KEY, DEFAULT_AUTH_KEY);
+      // TODO: do we really want to communicate with the server on every
+      // launch?
+      if (systemId_ != DEFAULT_SYSTEM_ID ||
+            !authKey_.equals(DEFAULT_AUTH_KEY)) {
+         new Thread(new Runnable() {
+            @Override
+            public void run() {
+               try {
+                  isEnabled_ = setIDs(systemId_, authKey_);
+                  studio_.logs().logError(String.format("System %d auth %s gives enabled %s", systemId_, authKey_, isEnabled_));
+               }
+               catch (IOException e) {
+                  studio_.logs().logError(e, "Unable to verify notification access");
+                  isEnabled_ = false;
+               }
+            }
+         }).start();
+      }
       contactEmail_ = studio_.profile().getString(
                DefaultNotificationManager.class, CONTACT_EMAIL, "");
       contactCellphone_ = studio_.profile().getString(
@@ -96,16 +115,16 @@ public class DefaultNotificationManager implements NotificationManager {
 
    // TODO: this should set the strings into the global profile.
    public boolean setIDs(int systemId, String authKey) throws IOException {
-      boolean result = sendRequest("/notify/acquireKey", "auth_key", authKey);
-      if (result) {
-         systemId_ = systemId;
+      systemId_ = systemId;
+      isEnabled_ = sendRequest("/notify/acquireKey", "auth_key", authKey);
+      if (isEnabled_) {
          authKey_ = authKey;
          studio_.profile().setInt(DefaultNotificationManager.class,
                SYSTEM_ID, systemId);
          studio_.profile().setString(DefaultNotificationManager.class,
                AUTH_KEY, authKey);
       }
-      return result;
+      return isEnabled_;
    }
 
    public void setContactCellphone(String cellphone) {
@@ -118,6 +137,11 @@ public class DefaultNotificationManager implements NotificationManager {
       contactEmail_ = email;
       studio_.profile().setString(DefaultNotificationManager.class,
             CONTACT_EMAIL, email);
+   }
+
+   @Override
+   public boolean getCanUseNotifications() {
+      return isEnabled_;
    }
 
    @Override
@@ -248,9 +272,13 @@ public class DefaultNotificationManager implements NotificationManager {
       }
       JSONObject params = new JSONObject();
       ArrayList<String> args = new ArrayList<String>(Arrays.asList(argsArray));
-      args.addAll(new ArrayList<String>(Arrays.asList(new String[] {
-         "auth_key", authKey_, "mac_address", macAddress_,
-      })));
+      if (!path.equals("/notify/acquireKey")) {
+         // This specific path already provides an auth_key parameter.
+         args.add("auth_key");
+         args.add(authKey_);
+      }
+      args.add("mac_address");
+      args.add(macAddress_);
       try {
          // This one parameter is an int, not a string.
          params.put(URLEncoder.encode("system", CHARSET), systemId_);
@@ -276,21 +304,27 @@ public class DefaultNotificationManager implements NotificationManager {
          OutputStream out = connection.getOutputStream();
          out.write(params.toString().getBytes(CHARSET));
          // Actually perform the post.
-         connection.getResponseCode();
+         int responseCode = connection.getResponseCode();
+         if (responseCode >= 200 && responseCode <= 299) {
+            return true;
+         }
+         // Read any error message from the server and throw an IOException
+         // with the error as the contents.
          InputStream stream = connection.getErrorStream();
          if (stream == null) {
             stream = connection.getInputStream();
          }
          BufferedReader reader = new BufferedReader(
                new InputStreamReader(stream));
+         String error = "";
          while (true) {
             String line = reader.readLine();
             if (line == null) {
                break;
             }
-            studio_.logs().logError(line);
+            error += line;
          }
-         return true;
+         throw new IOException(error);
       }
       catch (MalformedURLException e) {
          studio_.logs().logError(e, "Bad URL format " + path);

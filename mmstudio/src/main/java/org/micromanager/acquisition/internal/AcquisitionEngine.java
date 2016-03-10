@@ -402,6 +402,11 @@ public interface AcquisitionEngine {
     */
    public void setAfSkipInterval (int interval);
 
+   public void setNotifyOnFailure(boolean notify);
+   public void setNotifyOnCompletion(boolean notify);
+   public void setNotifyEmail(String email);
+   public void setNotifyCellphone(String cellphone);
+
    // utility
    public String getVerboseSummary();
 
