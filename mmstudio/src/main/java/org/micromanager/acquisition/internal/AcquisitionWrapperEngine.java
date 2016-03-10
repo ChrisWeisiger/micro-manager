@@ -74,6 +74,10 @@ public class AcquisitionWrapperEngine implements AcquisitionEngine {
    private IAcquisitionEngine2010 acquisitionEngine2010_;
    private ArrayList<Double> customTimeIntervalsMs_;
    private boolean useCustomIntervals_;
+   private boolean notifyOnFailure_;
+   private boolean notifyOnCompletion_;
+   private String notifyEmail_;
+   private String notifyCellphone_;
    protected JSONObject summaryMetadata_;
    private ArrayList<AcqSettingsListener> settingsListeners_;
    private Datastore curStore_;
@@ -346,6 +350,10 @@ public class AcquisitionWrapperEngine implements AcquisitionEngine {
       acquisitionSettings.comment = comment_;
       acquisitionSettings.usePositionList = this.useMultiPosition_;
       acquisitionSettings.cameraTimeout = this.cameraTimeout_;
+      acquisitionSettings.shouldNotifyOnFailure = this.notifyOnFailure_;
+      acquisitionSettings.shouldNotifyOnCompletion = this.notifyOnCompletion_;
+      acquisitionSettings.notificationEmail = this.notifyEmail_;
+      acquisitionSettings.notificationCellphone = this.notifyCellphone_;
       return acquisitionSettings;
    }
 
@@ -1103,6 +1111,26 @@ public class AcquisitionWrapperEngine implements AcquisitionEngine {
    @Override
    public boolean customTimeIntervalsEnabled() {
       return useCustomIntervals_;
+   }
+
+   @Override
+   public void setNotifyOnFailure(boolean notify) {
+      notifyOnFailure_ = notify;
+   }
+
+   @Override
+   public void setNotifyOnCompletion(boolean notify) {
+      notifyOnCompletion_ = notify;
+   }
+
+   @Override
+   public void setNotifyEmail(String email) {
+      notifyEmail_ = email;
+   }
+
+   @Override
+   public void setNotifyCellphone(String cellphone) {
+      notifyCellphone_ = cellphone;
    }
 
    /*

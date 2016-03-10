@@ -70,6 +70,7 @@ import org.micromanager.internal.utils.MMScriptException;
 import org.micromanager.internal.utils.NumberUtils;
 import org.micromanager.internal.utils.ReportingUtils;
 import org.micromanager.internal.utils.TooltipTextMaker;
+import org.micromanager.notifications.internal.NotificationConfigDialog;
 
 /**
  * Time-lapse, channel and z-stack acquisition setup dialog.
@@ -128,6 +129,10 @@ public class AcqControlDlg extends MMFrame implements PropertyChangeListener,
    private JCheckBox chanKeepShutterOpenCheckBox_;
    private AcqOrderMode[] acqOrderModes_;
    private CustomTimesDialog customTimesWindow;
+   private JCheckBox notifyOnFailure_;
+   private JCheckBox notifyOnCompletion_;
+   private JTextField notifyEmail_;
+   private JTextField notifyCellphone_;
    // persistent properties (app settings)
    private static final String ACQ_FILE_DIR = "dir";
    private static final String ACQ_INTERVAL = "acqInterval";
@@ -169,6 +174,12 @@ public class AcqControlDlg extends MMFrame implements PropertyChangeListener,
    private static final int ACQ_DEFAULT_COLUMN_WIDTH = 77;
    private static final String CUSTOM_INTERVAL_PREFIX = "customInterval";
    private static final String ACQ_ENABLE_CUSTOM_INTERVALS = "enableCustomIntervals";
+   private static final String IS_NOTIFY_ON = "notify user about acquisitions";
+   private static final String NOTIFY_ON_FAILURE = "notify user when acquisition fails";
+   private static final String NOTIFY_ON_COMPLETION = "notify user when acquisition ends";
+   private static final String NOTIFY_EMAIL = "email to use to notify user";
+   private static final String NOTIFY_CELLPHONE = "cellphone to use to notify user";
+
    public static final FileType ACQ_SETTINGS_FILE = new FileType("ACQ_SETTINGS_FILE", "Acquisition settings",
            System.getProperty("user.home") + "/AcqSettings.txt",
            true, "xml");
@@ -184,6 +195,7 @@ public class AcqControlDlg extends MMFrame implements PropertyChangeListener,
    private CheckBoxPanel afPanel_;
    private JPanel summaryPanel_;
    private CheckBoxPanel savePanel_;
+   private CheckBoxPanel notifyPanel_;
    private ComponentTitledPanel commentsPanel_;
    private boolean disableGUItoSettings_ = false;
 
@@ -855,6 +867,47 @@ public class AcqControlDlg extends MMFrame implements PropertyChangeListener,
       return savePanel_;
    }
 
+   private CheckBoxPanel createNotifyPanel() {
+      notifyPanel_ = createCheckBoxPanel("Notifications");
+      notifyPanel_.setLayout(new MigLayout(PANEL_CONSTRAINT + ", flowy",
+               "[grow, fill]"));
+      notifyPanel_.setToolTipText("Send you an email or text notification when your acquisition ends.");
+
+      notifyOnFailure_ = new JCheckBox("Notify on Failure");
+      notifyOnFailure_.setToolTipText("Send a notification if the acquisition terminates early for any reason.");
+      notifyOnFailure_.setFont(DEFAULT_FONT);
+      notifyPanel_.add(notifyOnFailure_);
+      notifyOnCompletion_ = new JCheckBox("Notify on Completion");
+      notifyOnCompletion_.setToolTipText("Send a notification when the acquisition completes successfully.");
+      notifyOnCompletion_.setFont(DEFAULT_FONT);
+      notifyPanel_.add(notifyOnCompletion_, "wrap");
+
+      JLabel email = new JLabel("Email:");
+      email.setFont(DEFAULT_FONT);
+      notifyPanel_.add(email, "split 2, flowx, alignx label");
+      notifyEmail_ = new JTextField(15);
+      notifyEmail_.setFont(DEFAULT_FONT);
+      notifyPanel_.add(notifyEmail_, "growx");
+
+      JLabel cellphone = new JLabel("Cellphone:");
+      cellphone.setFont(DEFAULT_FONT);
+      notifyPanel_.add(cellphone, "split 2, flowx, alignx label");
+      notifyCellphone_ = new JTextField(15);
+      notifyCellphone_.setFont(DEFAULT_FONT);
+      notifyPanel_.add(notifyCellphone_, "growx, wrap");
+
+      JButton setupButton = new JButton("<html>Enable<br>Notifications</html>");
+      setupButton.addActionListener(new ActionListener() {
+         @Override
+         public void actionPerformed(ActionEvent e) {
+            NotificationConfigDialog.show(AcqControlDlg.this, studio_);
+         }
+      });
+      notifyPanel_.add(setupButton, "width 120!, spany, wrap");
+
+      return notifyPanel_;
+   }
+
    private JPanel createCommentsPanel() {
       commentsPanel_ = createLabelPanel("Acquisition Comments");
       commentsPanel_.setLayout(new MigLayout(PANEL_CONSTRAINT,
@@ -975,6 +1028,7 @@ public class AcqControlDlg extends MMFrame implements PropertyChangeListener,
       add(topPanel, "grow");
       add(createChannelsPanel(), "grow");
       add(createSavePanel(), "growx");
+      add(createNotifyPanel(), "growx");
       add(createCommentsPanel(), "growx");
 
 
@@ -1207,6 +1261,17 @@ public class AcqControlDlg extends MMFrame implements PropertyChangeListener,
       nameField_.setText(profile.getString(this.getClass(), ACQ_DIR_NAME, "Untitled"));
       String os_name = System.getProperty("os.name", "");
       rootField_.setText(profile.getString(this.getClass(), ACQ_ROOT_NAME, System.getProperty("user.home") + "/AcquisitionData"));
+
+      notifyPanel_.setSelected(profile.getBoolean(this.getClass(),
+               IS_NOTIFY_ON, false));
+      notifyOnFailure_.setSelected(profile.getBoolean(this.getClass(),
+               NOTIFY_ON_FAILURE, true));
+      notifyOnCompletion_.setSelected(profile.getBoolean(this.getClass(),
+               NOTIFY_ON_COMPLETION, false));
+      notifyEmail_.setText(
+            profile.getString(this.getClass(), NOTIFY_EMAIL, ""));
+      notifyCellphone_.setText(
+            profile.getString(this.getClass(), NOTIFY_CELLPHONE, ""));
 
       acqEng_.setAcqOrderMode(profile.getInt(this.getClass(), ACQ_ORDER_MODE, acqEng_.getAcqOrderMode()));
 
@@ -1596,6 +1661,24 @@ public class AcqControlDlg extends MMFrame implements PropertyChangeListener,
          return null;
       }
 
+      // Double-check notification settings.
+      if (notifyPanel_.isSelected()) {
+         if (!studio_.notifier().getCanUseNotifications()) {
+            JOptionPane.showMessageDialog(this,
+                  "This system is not able to use notifications. Please click the Enable Notifications button to set up notifications."
+            return null;
+         }
+         if (notifyEmail_.getText().equals("") &&
+               notifyCellphone_.getText().equals("")) {
+            JOptionPane.showMessageDialog(this,
+                  "Please provide either an email address or cellphone number to send notifications to.");
+            return null;
+         }
+         // TODO: do we want to try to validate the email address? Of course,
+         // the only true way to validate an address is to try to send mail
+         // to it...
+      }
+
       try {
          applySettings();
          saveAcqSettings();
@@ -1826,7 +1909,6 @@ public class AcqControlDlg extends MMFrame implements PropertyChangeListener,
          acqEng_.setAfSkipInterval(NumberUtils.displayStringToInt(afSkipInterval_.getValue().toString()));
          acqEng_.keepShutterOpenForChannels(chanKeepShutterOpenCheckBox_.isSelected());
          acqEng_.keepShutterOpenForStack(stackKeepShutterOpenCheckBox_.isSelected());
-
       } catch (ParseException p) {
          ReportingUtils.showError(p);
          // TODO: throw error
@@ -1841,8 +1923,11 @@ public class AcqControlDlg extends MMFrame implements PropertyChangeListener,
       // update summary
 
       acqEng_.setComment(commentTextArea_.getText());
-
       acqEng_.enableAutoFocus(afPanel_.isSelected());
+      acqEng_.setNotifyOnFailure(notifyOnFailure_.isSelected());
+      acqEng_.setNotifyOnCompletion(notifyOnCompletion_.isSelected());
+      acqEng_.setNotifyEmail(notifyEmail_.getText());
+      acqEng_.setNotifyCellphone(notifyCellphone_.getText());
 
       disableGUItoSettings_ = false;
       updateGUIContents();

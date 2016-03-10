@@ -30,6 +30,15 @@ import org.micromanager.PropertyMap;
  */
 public interface NotificationManager {
    /**
+    * Return whether or not this system is capable of performing notifications.
+    * To be able to use notifications, the system must have been previously
+    * configured with a valid system ID and authentication key via the
+    * Options panel.
+    * @returns Whether or not notifications are possible.
+    */
+   public boolean getCanUseNotifications();
+
+   /**
     * Send a text notification to the current user. This requires the user
     * to have provided appropriate contact information via the GUI.
     * @param text String of the text to send to the user.

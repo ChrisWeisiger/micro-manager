@@ -117,6 +117,30 @@ public class SequenceSettings {
     * (actual timeout depends on exposure time and other factors)
     */
    public int cameraTimeout = 20000;
+   /**
+    * Whether or not to notify the user on acquisition failure.
+    * Use of notification settings requires the system to be authenticated with
+    * Open Imaging's server.
+    */
+   public boolean shouldNotifyOnFailure = false;
+   /**
+    * Whether or not to notify the user on successful acquisition completion.
+    * Use of notification settings requires the system to be authenticated with
+    * Open Imaging's server.
+    */
+   public boolean shouldNotifyOnCompletion = false;
+   /**
+    * Email address to send notifications to, if notifications are enabled.
+    * Use of notification settings requires the system to be authenticated with
+    * Open Imaging's server.
+    */
+   public String notificationEmail = "";
+   /**
+    * Cellphone to send notifications to, if notifications are enabled.
+    * Use of notification settings requires the system to be authenticated with
+    * Open Imaging's server.
+    */
+   public String notificationCellphone = "";
 
    public static String toJSONStream(SequenceSettings settings) {
       Gson gson = new GsonBuilder().setPrettyPrinting().create();
