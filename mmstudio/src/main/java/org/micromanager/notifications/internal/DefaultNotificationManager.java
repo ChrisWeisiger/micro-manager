@@ -79,28 +79,7 @@ public class DefaultNotificationManager implements NotificationManager {
             SYSTEM_ID, DEFAULT_SYSTEM_ID);
       authKey_ = studio_.profile().getString(DefaultNotificationManager.class,
             AUTH_KEY, DEFAULT_AUTH_KEY);
-      // TODO: do we really want to communicate with the server on every
-      // launch?
-      if (systemId_ != DEFAULT_SYSTEM_ID ||
-            !authKey_.equals(DEFAULT_AUTH_KEY)) {
-         new Thread(new Runnable() {
-            @Override
-            public void run() {
-               try {
-                  isEnabled_ = setIDs(systemId_, authKey_);
-                  studio_.logs().logError(String.format("System %d auth %s gives enabled %s", systemId_, authKey_, isEnabled_));
-               }
-               catch (IOException e) {
-                  studio_.logs().logError(e, "Unable to verify notification access");
-                  isEnabled_ = false;
-               }
-            }
-         }).start();
-      }
-      contactEmail_ = studio_.profile().getString(
-               DefaultNotificationManager.class, CONTACT_EMAIL, "");
-      contactCellphone_ = studio_.profile().getString(
-               DefaultNotificationManager.class, CONTACT_CELLPHONE, "");
+
       mmcorej.StrVector addrs = studio_.core().getMACAddresses();
       if (addrs.size() > 0) {
          String addr = addrs.get(0);
@@ -111,18 +90,51 @@ public class DefaultNotificationManager implements NotificationManager {
       if (macAddress_.equals("")) {
          studio_.logs().logError("Unable to determine MAC address.");
       }
+      // TODO: do we really want to communicate with the server on every
+      // launch?
+      if (systemId_ != DEFAULT_SYSTEM_ID ||
+            !authKey_.equals(DEFAULT_AUTH_KEY)) {
+         new Thread(new Runnable() {
+            @Override
+            public void run() {
+               isEnabled_ = setIDs(systemId_, authKey_);
+               if (!isEnabled_ &&
+                  (systemId_ != DEFAULT_SYSTEM_ID || authKey_ != DEFAULT_AUTH_KEY)) {
+                  studio_.logs().showError("This system is unable to use notifications.");
+                  storeSystemID(DEFAULT_SYSTEM_ID);
+                  storeAuthKey(DEFAULT_AUTH_KEY);
+               }
+            }
+         }).start();
+      }
+      contactEmail_ = studio_.profile().getString(
+               DefaultNotificationManager.class, CONTACT_EMAIL, "");
+      contactCellphone_ = studio_.profile().getString(
+               DefaultNotificationManager.class, CONTACT_CELLPHONE, "");
    }
 
    // TODO: this should set the strings into the global profile.
-   public boolean setIDs(int systemId, String authKey) throws IOException {
-      systemId_ = systemId;
-      isEnabled_ = sendRequest("/notify/acquireKey", "auth_key", authKey);
-      if (isEnabled_) {
-         authKey_ = authKey;
-         studio_.profile().setInt(DefaultNotificationManager.class,
-               SYSTEM_ID, systemId);
-         studio_.profile().setString(DefaultNotificationManager.class,
-               AUTH_KEY, authKey);
+   public boolean setIDs(int systemId, String authKey) {
+      try {
+         JSONObject params = new JSONObject();
+         params.put("system", systemId);
+         params.put("auth_key", authKey);
+         params.put("mac_address", macAddress_);
+         isEnabled_ = sendRequest("/notify/testKey", params);
+         if (isEnabled_) {
+            systemId_ = systemId;
+            authKey_ = authKey;
+            storeSystemID(systemId);
+            storeAuthKey(authKey);
+         }
+      }
+      catch (JSONException e) {
+         // This should never happen!
+         studio_.logs().logError(e, "Error martialling parameters to test IDs");
+      }
+      catch (Exception e) {
+         // Assume the ID was invalid.
+         return false;
       }
       return isEnabled_;
    }
@@ -137,6 +149,20 @@ public class DefaultNotificationManager implements NotificationManager {
       contactEmail_ = email;
       studio_.profile().setString(DefaultNotificationManager.class,
             CONTACT_EMAIL, email);
+   }
+
+   private void storeSystemID(int systemId) {
+      studio_.profile().setInt(DefaultNotificationManager.class,
+            SYSTEM_ID, systemId);
+   }
+
+   private void storeAuthKey(String authKey) {
+      studio_.profile().setString(DefaultNotificationManager.class,
+            AUTH_KEY, authKey);
+   }
+
+   public String getMacAddress() {
+      return macAddress_;
    }
 
    @Override
@@ -161,11 +187,11 @@ public class DefaultNotificationManager implements NotificationManager {
       synchronized(monitoredThreads_) {
          monitoredThreads_.add(thread);
       }
-      sendRequest("/notify/startMonitor",
+      sendRequest("/notify/startMonitor", martialParams(
             "monitor_id", Long.toString(thread.getId()),
             "failure_text", text, "email", contactEmail_,
             "cellphone", contactCellphone_,
-            "timeout_minutes", Integer.toString(timeoutMinutes));
+            "timeout_minutes", Integer.toString(timeoutMinutes)));
       if (threadMonitor_ == null) {
          // Time to start monitoring.
          restartMonitor();
@@ -192,8 +218,8 @@ public class DefaultNotificationManager implements NotificationManager {
             }
          }
       }
-      sendRequest("/notify/stopMonitor",
-            "monitor_id", Long.toString(thread.getId()));
+      sendRequest("/notify/stopMonitor", martialParams(
+            "monitor_id", Long.toString(thread.getId())));
    }
 
    @Override
@@ -234,8 +260,8 @@ public class DefaultNotificationManager implements NotificationManager {
          }
          for (Thread thread : uniquifiedHeartbeats) {
             try {
-               sendRequest("/notify/heartbeat",
-                     "monitor_id", Long.toString(thread.getId()));
+               sendRequest("/notify/heartbeat", martialParams(
+                     "monitor_id", Long.toString(thread.getId())));
             }
             catch (IOException e) {
                studio_.logs().logError(e, "Error sending heartbeat for " + thread.getId());
@@ -246,8 +272,8 @@ public class DefaultNotificationManager implements NotificationManager {
             for (Thread thread : new ArrayList<Thread>(monitoredThreads_)) {
                if (!thread.isAlive()) {
                   try {
-                     sendRequest("/notify/monitorFailure",
-                           "monitor_id", Long.toString(thread.getId()));
+                     sendRequest("/notify/monitorFailure", martialParams(
+                           "monitor_id", Long.toString(thread.getId())));
                      monitoredThreads_.remove(thread);
                   }
                   catch (IOException e) {
@@ -260,10 +286,10 @@ public class DefaultNotificationManager implements NotificationManager {
    }
 
    /**
-    * Internal utility function: generate a request parameter string from the
-    * provided list of parameters and send it to the server.
+    * Internal utility function: generate a JSONObject containing the provided
+    * list of parameters, as well as our server ID, auth key, and MAC address.
     */
-   private boolean sendRequest(String path, String... argsArray) throws IOException {
+   private JSONObject martialParams(String... argsArray) {
       if (systemId_ == null) {
          throw new RuntimeException("System ID not set");
       }
@@ -272,11 +298,6 @@ public class DefaultNotificationManager implements NotificationManager {
       }
       JSONObject params = new JSONObject();
       ArrayList<String> args = new ArrayList<String>(Arrays.asList(argsArray));
-      if (!path.equals("/notify/acquireKey")) {
-         // This specific path already provides an auth_key parameter.
-         args.add("auth_key");
-         args.add(authKey_);
-      }
       args.add("mac_address");
       args.add(macAddress_);
       try {
@@ -289,10 +310,22 @@ public class DefaultNotificationManager implements NotificationManager {
       }
       catch (UnsupportedEncodingException e) {
          studio_.logs().logError(e, "Invalid character encoding " + CHARSET);
-         return false;
+         return null;
       }
       catch (JSONException e) {
          studio_.logs().logError(e, "Error creating JSON parameters list");
+         return null;
+      }
+      return params;
+   }
+
+   /**
+    * Internal utility function: send a request to the server.
+    */
+   private boolean sendRequest(String path, JSONObject params) throws IOException {
+      if (params == null) {
+         // HACK: this check is because martialParams, above, returns null when
+         // implausible things go wrong.
          return false;
       }
       try {

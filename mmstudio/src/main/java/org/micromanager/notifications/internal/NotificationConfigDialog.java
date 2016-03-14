@@ -41,6 +41,7 @@ import org.micromanager.Studio;
  */
 public class NotificationConfigDialog {
    public static void show(Window parent, Studio studio) {
+      DefaultNotificationManager notifier = (DefaultNotificationManager) (studio.notifier());
       JPanel panel = new JPanel(new MigLayout());
       JLabel siteLabel = new JLabel(
             "<html><a href=\"http://open-imaging.com\">http://open-imaging.com</a></html>");
@@ -66,14 +67,16 @@ public class NotificationConfigDialog {
          "span, wrap");
       panel.add(siteLabel, "span, wrap");
       panel.add(new JLabel(
-"<html>Please input the system ID and corresponding authentication key for<br>" + 
-"an unused system.</html>"), "span, wrap");
-      panel.add(new JLabel("System ID:"), "alignx label");
-      JTextField system = new JTextField(10);
-      panel.add(system);
-      panel.add(new JLabel("Authentication key:"), "alignx label");
-      JTextField authKey = new JTextField(10);
-      panel.add(authKey);
+"<html>To enable notifications for this system, copy this text into the<br>" +
+"\"Assigned System\" text on the website:</html>"), "span");
+      JTextField macText = new JTextField(notifier.getMacAddress());
+      macText.setEditable(false);
+      panel.add(macText, "wrap");
+      panel.add(new JLabel(
+"<html>Click the \"Assign\" button, then copy the \"Authorization Key\"<br>" +
+"text on the website into this field:"), "span");
+      JTextField keyText = new JTextField(10);
+      panel.add(keyText, "wrap");
 
       int response = JOptionPane.showConfirmDialog(parent, panel,
             "Input Notification Settings", JOptionPane.OK_CANCEL_OPTION);
@@ -83,16 +86,17 @@ public class NotificationConfigDialog {
       }
       boolean succeeded = false;
       try {
+         Integer system = Integer.parseInt(keyText.getText().split(":", 2)[0]);
+         String authKey = keyText.getText().split(":", 2)[1];
          succeeded = ((DefaultNotificationManager) studio.notifier()).setIDs(
-               Integer.parseInt(system.getText()), authKey.getText());
+               system, authKey);
       }
       catch (NumberFormatException e) {
          studio.logs().showError("The input system ID is not valid.");
          return;
       }
-      catch (IOException e) {
-         studio.logs().showError(e, "Sorry, we were unable to set your notification keys.");
-         return;
+      catch (ArrayIndexOutOfBoundsException e) {
+         studio.logs().showError("The authorization key was not valid.");
       }
       String message = succeeded ?
          "Success! Thank you for supporting \u00b5Manager!" :
