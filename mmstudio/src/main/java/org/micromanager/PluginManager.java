@@ -72,13 +72,6 @@ public interface PluginManager {
    public BrandPlugin getBrandPlugin();
 
    /**
-    * Returns the name of the program based on the currently-installed
-    * BrandPlugin. This is a convenience method.
-    * @return name of the program.
-    */
-   public String getProgramName();
-
-   /**
     * Return a HashMap that maps plugin class names to QuickAccessPlugin
     * instances. QuickAccessPlugins are for controls that can be included in
     * the Quick-Access Window.

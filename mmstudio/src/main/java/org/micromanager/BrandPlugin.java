@@ -35,15 +35,6 @@ import javax.swing.JPanel;
  */
 public abstract class BrandPlugin implements MMPlugin {
    /**
-    * Provide the name of the program. This will be used in the UI wherever
-    * the program needs to refer to itself.
-    * @return Name of the program
-    */
-   public String getProgramName() {
-      return "Microscope Controller";
-   }
-
-   /**
     * Provide the contents of the intro dialog, except for the cancel/OK
     * buttons.
     * @param profileSelect A dropdown menu to select the user profile

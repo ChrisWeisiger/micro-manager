@@ -318,11 +318,6 @@ public class DefaultPluginManager implements PluginManager {
    }
 
    @Override
-   public String getProgramName() {
-      return getBrandPlugin().getProgramName();
-   }
-
-   @Override
    public HashMap<String, MenuPlugin> getMenuPlugins() {
       HashMap<String, MenuPlugin> result = new HashMap<String, MenuPlugin>();
       for (MMPlugin plugin : pluginTypeToPlugins_.get(MenuPlugin.class)) {
