@@ -63,12 +63,20 @@ public interface PluginManager {
    public HashMap<String, AutofocusPlugin> getAutofocusPlugins();
 
    /**
-    * Return a HashMap that maps plugin class names to IntroPlugin instances.
-    * IntroPlugins are used to customize the intro dialog at the start of the
-    * program. Ordinarily there should only be at most one of this kind of
-    * plugin installed at a time.
+    * Returns the currently-installed BrandPlugin, or, if no BrandPlugin is
+    * available, then the program will provide a generic implementation.
+    * BrandPlugins control various aspects of the program's appearance and
+    * behavior to tailor it to specific builds. If there is more than one
+    * BrandPlugin installed, the program may not run correctly.
     */
-   public HashMap<String, IntroPlugin> getIntroPlugins();
+   public BrandPlugin getBrandPlugin();
+
+   /**
+    * Returns the name of the program based on the currently-installed
+    * BrandPlugin. This is a convenience method.
+    * @return name of the program.
+    */
+   public String getProgramName();
 
    /**
     * Return a HashMap that maps plugin class names to QuickAccessPlugin

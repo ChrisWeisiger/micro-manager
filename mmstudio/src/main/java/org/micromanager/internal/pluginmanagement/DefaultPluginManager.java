@@ -37,7 +37,7 @@ import org.micromanager.AutofocusPlugin;
 import org.micromanager.data.ProcessorPlugin;
 import org.micromanager.display.InspectorPlugin;
 import org.micromanager.display.OverlayPlugin;
-import org.micromanager.IntroPlugin;
+import org.micromanager.BrandPlugin;
 import org.micromanager.MenuPlugin;
 import org.micromanager.MMPlugin;
 import org.micromanager.PluginManager;
@@ -99,7 +99,7 @@ public class DefaultPluginManager implements PluginManager {
       VALID_CLASSES.add(ProcessorPlugin.class);
       VALID_CLASSES.add(InspectorPlugin.class);
       VALID_CLASSES.add(OverlayPlugin.class);
-      VALID_CLASSES.add(IntroPlugin.class);
+      VALID_CLASSES.add(BrandPlugin.class);
       VALID_CLASSES.add(MenuPlugin.class);
       VALID_CLASSES.add(QuickAccessPlugin.class);
       VALID_CLASSES.add(MMPlugin.class);
@@ -308,12 +308,18 @@ public class DefaultPluginManager implements PluginManager {
    }
 
    @Override
-   public HashMap<String, IntroPlugin> getIntroPlugins() {
-      HashMap<String, IntroPlugin> result = new HashMap<String, IntroPlugin>();
-      for (MMPlugin plugin : pluginTypeToPlugins_.get(IntroPlugin.class)) {
-         result.put(plugin.getClass().getName(), (IntroPlugin) plugin);
+   public BrandPlugin getBrandPlugin() {
+      ArrayList<MMPlugin> plugins = pluginTypeToPlugins_.get(BrandPlugin.class);
+      if (plugins.size() > 0) {
+         return (BrandPlugin) (plugins.get(0));
       }
-      return result;
+      // Produce a generic one instead.
+      return new DefaultBrandPlugin();
+   }
+
+   @Override
+   public String getProgramName() {
+      return getBrandPlugin().getProgramName();
    }
 
    @Override

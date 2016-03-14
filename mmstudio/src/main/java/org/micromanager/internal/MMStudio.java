@@ -383,7 +383,7 @@ public class MMStudio implements Studio, CompatibilityInterface, PositionListMan
       hotKeys_ = new org.micromanager.internal.utils.HotKeys();
       hotKeys_.loadSettings();
 
-      // We wait for plugin loading to finish now, since IntroPlugins may be
+      // We wait for plugin loading to finish now, since BrandPlugins may be
       // needed to display the intro dialog. Fortunately, plugin loading is
       // fast in 2.0 (it used to be very slow in 1.4, so we had a special
       // dialog that popped up prompting the user to wait, and we had to do
