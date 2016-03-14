@@ -264,8 +264,6 @@ public class MMStudio implements Studio, CompatibilityInterface, PositionListMan
          startupScriptFile_ = "";
       }
 
-      setBackgroundStyle(DaytimeNighttime.getBackgroundMode());
-
       RegistrationDlg.showIfNecessary();
 
       try {
@@ -419,6 +417,8 @@ public class MMStudio implements Studio, CompatibilityInterface, PositionListMan
          }
          sysConfigFile_ = introDlg.getConfigFile();
       }
+      // Now that profile is selected, set the look and feel for everything.
+      DaytimeNighttime.setMode(DaytimeNighttime.getBackgroundMode());
 
       IJVersionCheckDlg.execute();
 

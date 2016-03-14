@@ -103,11 +103,11 @@ public class IntroDlg extends JDialog {
       // Select a plugin to use to customize the dialog.
       plugin_ = studio_.plugins().getBrandPlugin();
 
-      setLayout(new MigLayout());
+      setLayout(new MigLayout("insets 0"));
 
       Font textFont = new Font("Arial", Font.PLAIN, 10);
       setFont(textFont);
-      setTitle(plugin_.getProgramName() + " Startup");
+      setTitle("Micro-Manager Startup");
       setName("Intro");
       setResizable(false);
       setModal(true);
