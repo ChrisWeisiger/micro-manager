@@ -1665,7 +1665,7 @@ public class AcqControlDlg extends MMFrame implements PropertyChangeListener,
       if (notifyPanel_.isSelected()) {
          if (!studio_.notifier().getCanUseNotifications()) {
             JOptionPane.showMessageDialog(this,
-                  "This system is not able to use notifications. Please click the Enable Notifications button to set up notifications."
+                  "This system is not able to use notifications. Please click the Enable Notifications button to set up notifications.");
             return null;
          }
          if (notifyEmail_.getText().equals("") &&
