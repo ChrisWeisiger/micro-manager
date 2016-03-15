@@ -117,9 +117,19 @@ public class IntroDlg extends JDialog {
       }
 
       add(plugin_.getIntroDialogPanel(profileSelect_, profileDeleteButton_,
-            configSelect_, fileBrowseButton_), "wrap");
+            configSelect_, fileBrowseButton_), "spanx, wrap");
 
-      final JButton okButton = new JButton();
+      final JButton licenseButton = new JButton("License Info");
+      licenseButton.setFont(textFont);
+      licenseButton.addActionListener(new ActionListener() {
+         @Override
+         public void actionPerformed(ActionEvent e) {
+            LicenseDialog.show(IntroDlg.this);
+         }
+      });
+      add(licenseButton, "gapright push");
+
+      final JButton okButton = new JButton("OK");
       okButton.setFont(textFont);
       okButton.addActionListener(new ActionListener() {
          @Override
@@ -128,11 +138,10 @@ public class IntroDlg extends JDialog {
             setVisible(false);
          }
       });
-      okButton.setText("OK");
       getRootPane().setDefaultButton(okButton);
       okButton.requestFocusInWindow();
 
-      final JButton cancelButton = new JButton();
+      final JButton cancelButton = new JButton("Cancel");
       cancelButton.setFont(textFont);
       cancelButton.addActionListener(new ActionListener() {
          @Override
@@ -141,7 +150,6 @@ public class IntroDlg extends JDialog {
             setVisible(false);
          }
       });
-      cancelButton.setText("Cancel");
       if (JavaUtils.isMac()) {
          add(cancelButton, "split 2, align right, flowx");
          add(okButton);

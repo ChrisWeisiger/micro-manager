@@ -21,6 +21,7 @@
 				<include name="**/*.png"/>
 				<include name="**/*.gif"/>
 				<include name="**/*.html"/>
+				<include name="**/*.license"/>
 			</fileset>
         </copy>
 		<copy todir="${intdir}">
