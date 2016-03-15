@@ -19,11 +19,16 @@
 
 package com.openimaging.mmbrand;
 
+import com.bulenkov.iconloader.IconLoader;
+
 import java.net.URL;
 
 import javax.swing.JButton;
 import javax.swing.JComboBox;
+import javax.swing.JLabel;
 import javax.swing.JPanel;
+
+import net.miginfocom.swing.MigLayout;
 
 import org.micromanager.BrandPlugin;
 import org.micromanager.Studio;
@@ -62,20 +67,19 @@ public class MMBrandPlugin extends BrandPlugin implements SciJavaPlugin {
    }
 
    @Override
-   public String getProgramName() {
-      return "Micro-Manager";
-   }
-
-   @Override
    public JPanel getIntroDialogPanel(JComboBox profileSelect,
          JButton profileDelete, JComboBox configSelect, JButton configBrowse) {
-      return new JPanel();
+      return new IntroPanel(studio_, profileSelect, profileDelete,
+            configSelect, configBrowse);
    }
 
    // TODO: add logo
    @Override
    public JPanel getMainWindowPanel() {
-      return new JPanel();
+      JPanel result = new JPanel(new MigLayout("insets 0"));
+      result.add(new JLabel(IconLoader.getIcon(
+                  "/com/openimaging/brand/oi_logo_small.png")));
+      return result;
    }
 
    // TODO: implement server-side upload script
