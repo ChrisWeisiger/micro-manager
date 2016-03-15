@@ -1,3 +1,5 @@
+Copyright (c) 2014, Google Inc. All rights reserved.
+
 This license applies to all parts of Protocol Buffers except the following:
 - Atomicops support for generic gcc, located in
 src/google/protobuf/stubs/atomicops_internals_generic_gcc.h.
