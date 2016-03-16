@@ -10,12 +10,17 @@ use strict;
 
 my $name = shift @ARGV;
 $name .= ".license";
-open(FH, ">$name") or die "Couldn't open $name";
+open(FH, ">tmp.txt") or die "Couldn't open tmp.txt";
 my $license = shift @ARGV;
+$license = "$license.txt";
+if (not -e $license) {
+    die "Invalid license $license";
+}
 
+my $new = "";
 foreach my $arg (@ARGV) {
-    if ($arg =~ /^\d+$/) {
-        print FH "\nCopyright (c) $arg ";
+    if ($arg =~ /^\d+(-\d+)?$/) {
+        print FH $new . "Copyright (c) $arg ";
     }
     elsif ($arg eq "regents") {
         print FH "Regents of the University of California";
@@ -23,18 +28,10 @@ foreach my $arg (@ARGV) {
     else {
         print FH "$arg ";
     }
+    $new = "\n";
 }
 print FH "\n\n";
 close(FH);
-if ($license eq "bsd2") {
-    `cat bsd2.txt >> "$name"`;
-}
-elsif ($license eq "bsd3") {
-    `cat bsd3.txt >> "$name"`;
-}
-elsif ($license eq "lgpl") {
-    `cat lgpl.txt >> "$name"`;
-}
-else {
-    die "Unknown license $license\n";
-}
+`mv tmp.txt "$name"`;
+`cat $license >> "$name"`;
+
