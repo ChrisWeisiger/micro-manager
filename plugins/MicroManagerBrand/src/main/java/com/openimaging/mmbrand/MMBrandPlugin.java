@@ -21,6 +21,7 @@ package com.openimaging.mmbrand;
 
 import com.bulenkov.iconloader.IconLoader;
 
+import java.net.MalformedURLException;
 import java.net.URL;
 
 import javax.swing.JButton;
@@ -85,7 +86,13 @@ public class MMBrandPlugin extends BrandPlugin implements SciJavaPlugin {
    // TODO: implement server-side upload script
    @Override
    public URL getProblemReportURL() {
-      return null;
+      try {
+         return new URL("http://127.0.0.1:8000/uploads/problem_reports");
+      }
+      catch (MalformedURLException e) {
+         studio_.logs().logError(e, "Problem report URL is invalid");
+         return null;
+      }
    }
 
    // TODO: implement server-side upload script
