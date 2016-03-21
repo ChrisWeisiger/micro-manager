@@ -304,6 +304,10 @@ public class DefaultNotificationManager implements NotificationManager {
       }
       JSONObject params = new JSONObject();
       ArrayList<String> args = new ArrayList<String>(Arrays.asList(argsArray));
+      if (authKey_ != null) {
+         args.add("auth_key");
+         args.add(authKey_);
+      }
       args.add("mac_address");
       args.add(macAddress_);
       try {
