@@ -60,10 +60,10 @@ import javax.swing.text.DefaultCaret;
 import mmcorej.CMMCore;
 import mmcorej.StrVector;
 
+import org.micromanager.notifications.internal.DefaultNotificationManager;
 import org.micromanager.internal.MMStudio;
 import org.micromanager.internal.utils.DefaultUserProfile;
 import org.micromanager.internal.utils.FileDialogs;
-import org.micromanager.internal.utils.HttpUtils;
 import org.micromanager.internal.utils.MMDialog;
 import org.micromanager.internal.utils.ReportingUtils;
 
@@ -283,7 +283,6 @@ public class ConfiguratorDlg2 extends MMDialog {
     private String UploadCurrentConfigFile() {
         String returnValue = "";
         try {
-            HttpUtils httpu = new HttpUtils();
             List<File> list = new ArrayList<File>();
             File conff = new File(this.getFileName());
             if (conff.exists()) {
@@ -354,14 +353,8 @@ public class ConfiguratorDlg2 extends MMDialog {
                     for (Object o0 : flist) {
                         File f0 = (File) o0;
                         try {
-                            httpu.upload(url, f0);
-                        } catch (java.net.UnknownHostException e) {
-                            returnValue = e.toString();
-
-                        } catch (IOException e) {
-                            returnValue = e.toString();
-                        } catch (SecurityException e) {
-                            returnValue = e.toString();
+                           MMStudio studio = MMStudio.getInstance();
+                           ((DefaultNotificationManager) studio.notifier()).uploadConfigFile(f0);
                         } catch (Exception e) {
                             returnValue = e.toString();
                         }

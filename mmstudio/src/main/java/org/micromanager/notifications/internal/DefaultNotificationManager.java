@@ -19,11 +19,17 @@
 
 package org.micromanager.notifications.internal;
 
+import com.google.common.io.ByteStreams;
+
 import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.OutputStreamWriter;
+import java.io.PrintWriter;
 import java.io.UnsupportedEncodingException;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
@@ -44,12 +50,15 @@ import org.micromanager.notifications.NotificationManager;
 import org.micromanager.PropertyMap;
 import org.micromanager.Studio;
 
+import org.micromanager.internal.utils.MDUtils;
+
 
 public class DefaultNotificationManager implements NotificationManager {
    private Studio studio_;
 
    private static final String DEFAULT_SERVER = "http://127.0.0.1:8000";
    private static final String CHARSET = "UTF-8";
+   private static final String CRLF = "\r\n";
 
    private static final String SYSTEM_ID = "system ID for communicating with the notification server";
    private static final String AUTH_KEY = "authentication key for communicating with the notification server";
@@ -290,9 +299,6 @@ public class DefaultNotificationManager implements NotificationManager {
     * list of parameters, as well as our server ID, auth key, and MAC address.
     */
    private JSONObject martialParams(String... argsArray) {
-      if (systemId_ == null) {
-         throw new RuntimeException("System ID not set");
-      }
       if (argsArray.length % 2 != 0) {
          throw new IllegalArgumentException("Uneven parameter list");
       }
@@ -301,8 +307,10 @@ public class DefaultNotificationManager implements NotificationManager {
       args.add("mac_address");
       args.add(macAddress_);
       try {
-         // This one parameter is an int, not a string.
-         params.put(URLEncoder.encode("system", CHARSET), systemId_);
+         if (systemId_ != null) {
+            // This one parameter is an int, not a string.
+            params.put(URLEncoder.encode("system", CHARSET), systemId_);
+         }
          for (int i = 0; i < args.size(); i += 2) {
             params.put(URLEncoder.encode(args.get(i), CHARSET),
                   URLEncoder.encode(args.get(i + 1), CHARSET));
@@ -362,6 +370,110 @@ public class DefaultNotificationManager implements NotificationManager {
       catch (MalformedURLException e) {
          studio_.logs().logError(e, "Bad URL format " + path);
          return false;
+      }
+   }
+
+   /**
+    * Sends a problem report file to the server, including auth information if
+    * it is available (but we allow anonymous problem reports as well). Returns
+    * any error string if something went wrong.
+    * TODO: it's kind of weird that this and uploadProblemReport are part of
+    * the "notifications" logic.
+    */
+   public String uploadConfigFile(File file) {
+      URL url = studio_.plugins().getBrandPlugin().getConfigFileURL();
+      if (url == null) {
+         return "No valid upload URL";
+      }
+      return uploadFile(url, file, "config", "Config file accepted");
+   }
+
+   /**
+    * Sends a problem report file to the server, including auth information if
+    * it is available (but we allow anonymous problem reports as well). Returns
+    * any error string if something went wrong.
+    * TODO: it's kind of weird that this and uploadConfigFile are part of
+    * the "notifications" logic.
+    */
+   public String uploadProblemReport(File file) {
+      URL url = studio_.plugins().getBrandPlugin().getProblemReportURL();
+      if (url == null) {
+         return "No valid upload URL";
+      }
+      return uploadFile(url, file, "report", "Problem report accepted");
+   }
+
+   /**
+    * Adapted from
+    * http://stackoverflow.com/questions/2469451/upload-files-from-java-client-to-a-http-server
+    */
+   private String uploadFile(URL url, File file, String fileParamName,
+         String successString) {
+      try {
+         String boundary = String.format(
+               "-------------------MMBoundary%d", System.currentTimeMillis());
+         URLConnection connection = url.openConnection();
+         connection.setDoOutput(true);
+         connection.setRequestProperty("Content-Type", "multipart/form-data; boundary=" + boundary);
+         OutputStream output = connection.getOutputStream();
+         PrintWriter writer = new PrintWriter(
+               new OutputStreamWriter(output, CHARSET), true);
+
+         // Send POST data.
+         JSONObject params = martialParams("mac_address", macAddress_);
+         for (String key : MDUtils.getKeys(params)) {
+            writer.append("--" + boundary).append(CRLF);
+            writer.append(String.format(
+                  "Content-Disposition: form-data; name=\"%s\"%s",
+                  key, CRLF));
+            writer.append(String.format(
+                     "Content-Type: text/plain; charset=%s%s", CHARSET, CRLF));
+            writer.append(CRLF).append(params.getString(key)).append(CRLF);
+            writer.flush();
+         }
+
+         // Send text file.
+         writer.append("--" + boundary).append(CRLF);
+         writer.append(String.format(
+                  "Content-Disposition: form-data; name=\"%s\"; filename=\"%s\"%s", fileParamName, file.getName(), CRLF));
+         writer.append(String.format(
+                  "Content-Type: text/plain; charset=%s%s", CHARSET, CRLF));
+         writer.append(CRLF).flush();
+         ByteStreams.copy(new FileInputStream(file), output);
+         output.flush(); // Important before continuing with writer!
+         writer.append(CRLF).flush(); // CRLF is important! It indicates end of boundary.
+
+         // End of multipart/form-data.
+         writer.append("--" + boundary + "--").append(CRLF).flush();
+
+         // Read response.
+         InputStream stream = connection.getInputStream();
+         BufferedReader reader = new BufferedReader(
+               new InputStreamReader(stream));
+         String response = "";
+         while (true) {
+            String line = reader.readLine();
+            if (line == null) {
+               break;
+            }
+            response += line;
+         }
+         if (!response.equals(successString)) {
+            return response;
+         }
+         return null;
+      }
+      catch (IOException e) {
+         studio_.logs().logError(e, "Error uploading file to server");
+         return "Error communicating with server";
+      }
+      catch (JSONException e) {
+         studio_.logs().logError(e, "Error inserting JSON params when uploading file");
+         return "File upload failed";
+      }
+      catch (Exception e) {
+         studio_.logs().logError(e);
+         return e.toString();
       }
    }
 }

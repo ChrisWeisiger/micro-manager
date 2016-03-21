@@ -57,7 +57,7 @@ public class HelpMenu {
          new Runnable() {
             @Override
             public void run() {
-               org.micromanager.internal.diagnostics.gui.ProblemReportController.start(core_);
+               org.micromanager.internal.diagnostics.gui.ProblemReportController.start(studio_);
             }
          }
       );

@@ -18,6 +18,7 @@ import org.micromanager.internal.diagnostics.ProblemReport;
 import org.micromanager.internal.diagnostics.ProblemReportFormatter;
 import org.micromanager.internal.diagnostics.ReportSender;
 
+import org.micromanager.Studio;
 
 /**
  * Controller for "Report Problem" GUI.
@@ -69,7 +70,7 @@ public class ProblemReportController {
     * Prompt user to reopen an interrupted Problem Report if one exists.
     * Does nothing if the Problem Report window is currently being displayed.
     */
-   public static void startIfInterruptedOnExit() {
+   public static void startIfInterruptedOnExit(Studio studio) {
       if (instance_ != null && instance_.frame_ != null) {
          return; // Don't mess if frame is being shown
       }
@@ -79,7 +80,7 @@ public class ProblemReportController {
          if (instance_ == null) {
             instance_ = new ProblemReportController();
          }
-         instance_.showFrame(true, null);
+         instance_.showFrame(true, studio);
       }
    }
 
@@ -87,17 +88,18 @@ public class ProblemReportController {
     * Activates the Problem Report window. If one is already open, brings it to
     * the front; if not, creates the window.
     */
-   public static void start(final mmcorej.CMMCore core) {
+   public static void start(Studio studio) {
       if (instance_ == null) {
          instance_ = new ProblemReportController();
       }
-      instance_.showFrame(false, core);
+      instance_.showFrame(false, studio);
    }
 
    /*
     * Instance fields and methods
     */
 
+   private Studio studio_;
    private mmcorej.CMMCore core_;
 
    private ProblemReportFrame frame_ = null;
@@ -113,8 +115,9 @@ public class ProblemReportController {
    private ProblemReportController() {
    }
 
-   void showFrame(boolean forceReopen, mmcorej.CMMCore core) {
-      core_ = core;
+   void showFrame(boolean forceReopen, Studio studio) {
+      studio_ = studio;
+      core_ = studio_.core();
 
       if (frame_ == null) {
          int reopenAnswer = forceReopen ? JOptionPane.YES_OPTION :
@@ -492,22 +495,22 @@ public class ProblemReportController {
             String reportStr = formatter.format(report_);
             String reportFileName = formatter.generateFileName(report_);
 
-            java.net.URL url = ReportSender.getProblemReportUploadURL();
+            java.net.URL url = studio_.plugins().getBrandPlugin().getProblemReportURL();
+            if (url == null) {
+               studio_.logs().logError("Asked to upload plugin but plugin URL is null!");
+               Result r = new Result();
+               r.success = false;
+               r.warning = "Unable to upload: no valid upload URL.";
+               return r;
+            }
 
             ReportSender sender = new ReportSender();
-            sender.sendReport(reportStr, reportFileName, url);
+            String error = sender.sendReport(studio_, reportStr,
+                  reportFileName, url);
 
             Result r = new Result();
-            r.success = true;
-            r.warning = null;
-            if (tooManyLines(reportStr, 10000)) {
-               r.warning =
-                  "<html><body><p style='width: 400px;'>" +
-                  "The report has been sent, but may have been truncated " +
-                  "due to exceeding the size limit. It is recommended that " +
-                  "you keep a backup by clicking on View Report and saving " +
-                  "a copy.</p></body></html>";
-            }
+            r.success = error == null;
+            r.warning = error;
             return r;
          }
 
@@ -529,7 +532,8 @@ public class ProblemReportController {
             }
 
             if (result.warning != null) {
-               JOptionPane.showMessageDialog(frame_, result.warning);
+               JOptionPane.showMessageDialog(frame_,
+                     "Unable to upload problem report:\n\n" + result.warning);
             }
             report_.deleteStorage();
             markReportSent();
@@ -568,5 +572,9 @@ public class ProblemReportController {
       ij.text.TextPanel panel = window.getTextPanel();
       panel.scrollToTop();
       window.setVisible(true);
+   }
+
+   public Studio getStudio() {
+      return studio_;
    }
 }

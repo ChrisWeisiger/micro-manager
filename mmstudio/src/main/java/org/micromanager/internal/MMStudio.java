@@ -457,7 +457,7 @@ public class MMStudio implements Studio, CompatibilityInterface, PositionListMan
       // switch error reporting back on
       ReportingUtils.showErrorOn(true);
 
-      org.micromanager.internal.diagnostics.gui.ProblemReportController.startIfInterruptedOnExit();
+      org.micromanager.internal.diagnostics.gui.ProblemReportController.startIfInterruptedOnExit(this);
 
       events().post(new StartupCompleteEvent());
    }

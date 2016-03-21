@@ -14,6 +14,13 @@
 // server.
 package org.micromanager.internal.diagnostics;
 
+import com.google.common.io.ByteStreams;
+
+import java.net.URL;
+
+import org.micromanager.Studio;
+import org.micromanager.notifications.internal.DefaultNotificationManager;
+
 /**
  * Upload a textual problem report.
  *
@@ -21,23 +28,8 @@ package org.micromanager.internal.diagnostics;
  * does not and should not depend on the contents of the report or its text.
  */
 public class ReportSender {
-   private static java.net.URL problemReportUploadURL_;
-   static {
-      try {
-         problemReportUploadURL_ = new java.net.URL("http://valelab.ucsf.edu/~MM/upload_corelog.php");
-      }
-      catch (java.net.MalformedURLException impossible) {
-         System.exit(1);
-      }
-   }
-
-   public static java.net.URL getProblemReportUploadURL() {
-      return problemReportUploadURL_;
-   }
-
-   // TODO The uuencoding ought to belong to a generic upload-to-mm-server
-   // framework, not in each place that performs a file upload.
-   public void sendReport(String report, String fileName, java.net.URL uploadURL)
+   public String sendReport(Studio studio, String report, String fileName,
+         URL uploadURL)
       throws java.io.IOException, java.io.FileNotFoundException, Exception {
 
       // TODO Eliminate temp file (and all the possible errors associated with its creation).
@@ -45,29 +37,30 @@ public class ReportSender {
       final java.io.File tempFile = new java.io.File(tempDir, fileName);
       tempFile.deleteOnExit();
 
+      String response = null;
       try {
-         saveReportToUUEncodedGZIPFile(report, tempFile);
-         new org.micromanager.internal.utils.HttpUtils().upload(uploadURL, tempFile);
+         saveReportToGZIPFile(report, tempFile);
+         response = ((DefaultNotificationManager) studio.notifier()).uploadProblemReport(tempFile);
       }
       finally {
          tempFile.delete();
       }
+      return response;
    }
 
-   private void saveReportToUUEncodedGZIPFile(String report, java.io.File file)
+   private void saveReportToGZIPFile(String report, java.io.File file)
       throws java.io.IOException, java.io.FileNotFoundException {
 
       final java.io.InputStream gzipInputFromPipe = getGZIPInputFromString(report);
-      final java.io.OutputStream uuencodedOutputToFile;
-      uuencodedOutputToFile = new java.io.FileOutputStream(file);
+      final java.io.OutputStream outputToFile;
+      outputToFile = new java.io.FileOutputStream(file);
 
       try {
-         // Surely "encodeBuffer" is a misnomer. It encodes streams.
-         new org.micromanager.internal.utils.MMUUEncoder().encodeBuffer(gzipInputFromPipe, uuencodedOutputToFile);
+         ByteStreams.copy(gzipInputFromPipe, outputToFile);
       }
       finally {
          try {
-            uuencodedOutputToFile.close();
+            outputToFile.close();
             gzipInputFromPipe.close();
          }
          catch (java.io.IOException ignore) {

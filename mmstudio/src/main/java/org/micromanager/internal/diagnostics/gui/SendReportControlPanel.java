@@ -21,6 +21,7 @@ import javax.swing.JTextField;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 
+import org.micromanager.Studio;
 
 class SendReportControlPanel extends ControlPanel {
    private final ProblemReportController controller_;
@@ -38,6 +39,8 @@ class SendReportControlPanel extends ControlPanel {
    private final JLabel sendingActivityLabel_;
    private JProgressBar sendingActivityIndicator_;
 
+   private Studio studio_;
+
    enum UIMode {
       UNSENT,
       SENDING,
@@ -52,6 +55,7 @@ class SendReportControlPanel extends ControlPanel {
    SendReportControlPanel(ProblemReportController controller,
          boolean allowRestart) {
       controller_ = controller;
+      studio_ = controller_.getStudio();
 
       cancelButton_ = new JButton("Cancel");
       cancelButton_.addActionListener(new ActionListener() {
@@ -140,7 +144,10 @@ class SendReportControlPanel extends ControlPanel {
 
       sendingActivityIndicatorPanel_ =
          new JPanel(new net.miginfocom.swing.MigLayout("fillx, insets 0"));
-      sendingActivityLabel_ = new JLabel("Report not yet sent.");
+      sendingActivityLabel_ = new JLabel("");
+      if (studio_.plugins().getBrandPlugin().getProblemReportURL() != null) {
+         sendingActivityLabel_.setText("Report not yet sent.");
+      }
       sendingActivityLabel_.setEnabled(false);
       sendingActivityIndicatorPanel_.add(sendingActivityLabel_);
 
@@ -164,7 +171,10 @@ class SendReportControlPanel extends ControlPanel {
          add(cancelButton_, "span 2, split 3, gapright push, sizegroup cancelbtns");
       }
       add(viewButton_, "sizegroup actionbtns");
-      add(sendButton_, "sizegroup actionbtns");
+      // Determine if uploads are possible.
+      if (studio_.plugins().getBrandPlugin().getProblemReportURL() != null) {
+         add(sendButton_, "sizegroup actionbtns");
+      }
 
       add(sendingActivityIndicatorPanel_, "newline, span 2");
    }
@@ -207,7 +217,9 @@ class SendReportControlPanel extends ControlPanel {
       switch (mode) {
          case UNSENT:
             sendingActivityLabel_.setEnabled(false);
-            sendingActivityLabel_.setText("Report not yet sent.");
+            if (studio_.plugins().getBrandPlugin().getProblemReportURL() != null) {
+               sendingActivityLabel_.setText("Report not yet sent.");
+            }
             cancelButton_.setText("Cancel");
             break;
          case SENDING:
@@ -216,7 +228,7 @@ class SendReportControlPanel extends ControlPanel {
             break;
          case SENT:
             sendingActivityLabel_.setEnabled(false);
-            sendingActivityLabel_.setText("Report sent to micro-manager.org (thank you!).");
+            sendingActivityLabel_.setText("Report sent (thank you!).");
             cancelButton_.setText("Close");
             break;
       }
