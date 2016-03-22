@@ -88,7 +88,6 @@ public class MMBrandPlugin extends BrandPlugin implements SciJavaPlugin {
       return result;
    }
 
-   // TODO: implement server-side upload script
    @Override
    public URL getProblemReportURL() {
       try {
@@ -100,7 +99,6 @@ public class MMBrandPlugin extends BrandPlugin implements SciJavaPlugin {
       }
    }
 
-   // TODO: implement server-side upload script
    @Override
    public URL getConfigFileURL() {
       try {
