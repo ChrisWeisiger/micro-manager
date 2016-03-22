@@ -68,6 +68,11 @@ public class MMBrandPlugin extends BrandPlugin implements SciJavaPlugin {
    }
 
    @Override
+   public String getOwnerName() {
+      return "Open Imaging";
+   }
+
+   @Override
    public JPanel getIntroDialogPanel(JComboBox profileSelect,
          JButton profileDelete, JComboBox configSelect, JButton configBrowse) {
       return new IntroPanel(studio_, profileSelect, profileDelete,
@@ -98,7 +103,13 @@ public class MMBrandPlugin extends BrandPlugin implements SciJavaPlugin {
    // TODO: implement server-side upload script
    @Override
    public URL getConfigFileURL() {
-      return null;
+      try {
+         return new URL("http://127.0.0.1:8000/uploads/config_files");
+      }
+      catch (MalformedURLException e) {
+         studio_.logs().logError(e, "Config file URL is invalid");
+         return null;
+      }
    }
 
    // TODO: test for registration
