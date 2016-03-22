@@ -34,6 +34,7 @@ import javax.swing.JCheckBox;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JTextField;
+import org.micromanager.BrandPlugin;
 import org.micromanager.internal.MMStudio;
 import org.micromanager.internal.utils.FileDialogs;
 import org.micromanager.internal.utils.GUIUtils;
@@ -91,17 +92,12 @@ public class FinishPage extends PagePanel {
             }
         });
 
-        sendCheck_.setText("Send configuration to Micro-manager.org");
-        add(sendCheck_);
+        BrandPlugin plugin = MMStudio.getInstance().plugins().getBrandPlugin();
+        sendCheck_.setText("Send configuration to " + plugin.getOwnerName());
 
-        final JLabel sendConfigExplain = new JLabel();
-        sendConfigExplain.setAutoscrolls(true);
-        sendConfigExplain.setText("Providing the configuration data will assist securing further project funding.");
-        sendConfigExplain.setBounds(14, 127, 500, 21);
-        sendConfigExplain.setFont(sendCheck_.getFont());
-        add(sendConfigExplain);
-        
-        //
+        if (plugin.getConfigFileURL() != null) {
+            add(sendCheck_);
+         }
     }
 
     public boolean enterPage(boolean next) {

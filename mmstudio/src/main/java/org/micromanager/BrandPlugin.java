@@ -35,6 +35,13 @@ import javax.swing.JPanel;
  */
 public abstract class BrandPlugin implements MMPlugin {
    /**
+    * Provide the name of the "creator" of this instance of the program. This
+    * may be inserted in some strings in the UI.
+    */
+   public String getOwnerName() {
+      return "Generic Owner";
+   }
+   /**
     * Provide the contents of the intro dialog, except for the cancel/OK
     * buttons.
     * @param profileSelect A dropdown menu to select the user profile

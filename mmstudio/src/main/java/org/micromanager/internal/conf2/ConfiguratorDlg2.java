@@ -183,10 +183,11 @@ public class ConfiguratorDlg2 extends MMDialog {
         pages_[pageNumber++] = new FinishPage();
 
         microModel_ = new MicroscopeModel();
-        // default to allow sending of configuration to micro-manager.org server
+        // Only upload if we have a valid upload server to send to.
         boolean bvalue = DefaultUserProfile.getInstance().getBoolean(
-              ConfiguratorDlg2.class, CFG_OKAY_TO_SEND, true);
-        microModel_.setSendConfiguration( bvalue);
+              ConfiguratorDlg2.class, CFG_OKAY_TO_SEND,
+              MMStudio.getInstance().plugins().getBrandPlugin().getConfigFileURL() != null);
+        microModel_.setSendConfiguration(bvalue);
         microModel_.loadAvailableDeviceList(core_);
         microModel_.setFileName(defaultPath_);
         Rectangle r = pagesLabel_.getBounds();
@@ -281,99 +282,17 @@ public class ConfiguratorDlg2 extends MMDialog {
     }
 
     private String UploadCurrentConfigFile() {
-        String returnValue = "";
-        try {
-            List<File> list = new ArrayList<File>();
-            File conff = new File(this.getFileName());
-            if (conff.exists()) {
-
-                // contruct a filename for the configuration file which is extremely
-                // likely to be unique as follows:
-                // yyyyMMddHHmmss + timezone + ip address
-                String prependedLine = "#";
-                String qualifiedConfigFileName = "";
-                try {
-                    SimpleDateFormat df = new SimpleDateFormat("yyyyMMddHHmmss");
-                    qualifiedConfigFileName += df.format(new Date());
-                    String shortTZName = TimeZone.getDefault().getDisplayName(false, TimeZone.SHORT);
-                    qualifiedConfigFileName += shortTZName;
-                    qualifiedConfigFileName += "@";
-                    try {
-                        // a handy, unique ID for the user's computer
-                        String physicalAddress = "00-00-00-00-00-00";
-
-                        StrVector ss = core_.getMACAddresses();
-                        if (0 < ss.size()){
-                            String pa2 = ss.get(0);
-                            if(null != pa2){
-                                if( 0 <  pa2.length()){
-                                    physicalAddress = pa2;
-                                }
-                            }
-                        }
-                        qualifiedConfigFileName += physicalAddress;
-                        prependedLine += "Host: " + InetAddress.getLocalHost().getHostName() + " ";
-                    } catch (UnknownHostException e) {
-                    }
-                    prependedLine += "User: " + core_.getUserId() + " configuration file: " + conff.getName() + "\n";
-                } catch (Throwable t) {
-                }
-
-                // can raw IP address have :'s in them? (ipv6??)
-                // try ensure valid and convenient UNIX file name
-                qualifiedConfigFileName = qualifiedConfigFileName.replace(':', '_');
-                qualifiedConfigFileName = qualifiedConfigFileName.replace(';', '_');
-
-                File fileToSend = new File(qualifiedConfigFileName);
-
-                FileReader reader = new FileReader(conff);
-                FileWriter writer = new FileWriter(fileToSend);
-                writer.append(prependedLine);
-                int c;
-                while (-1 != (c = reader.read())) {
-                    writer.write(c);
-                }
-                try{
-                    reader.close();
-                }catch(Exception e){
-                    ReportingUtils.logError(e);
-                }
-                try {
-                writer.close();
-                }catch(Exception e){
-                    ReportingUtils.logError(e);
-                }
-                try {
-
-                    URL url = new URL("http://valelab.ucsf.edu/~MM/upload_file.php");
-
-                    List<File> flist = new ArrayList<File>();
-                    flist.add(fileToSend);
-                    // for each of a colleciton of files to send...
-                    for (Object o0 : flist) {
-                        File f0 = (File) o0;
-                        try {
-                           MMStudio studio = MMStudio.getInstance();
-                           ((DefaultNotificationManager) studio.notifier()).uploadConfigFile(f0);
-                        } catch (Exception e) {
-                            returnValue = e.toString();
-                        }
-                    }
-                } catch (MalformedURLException e) {
-                    returnValue = e.toString();
-                }
-
-
-                // now delete the temporary file
-                if(!fileToSend.delete())
-                   ReportingUtils.logError("Couldn't delete temporary file " +qualifiedConfigFileName );
-
-            }
-        } catch (IOException e) {
-            returnValue = e.toString();
+        File fileToSend = new File(this.getFileName());
+        if (!fileToSend.exists()) {
+            return "Config file " + this.getFileName() + " not found";
         }
-        return returnValue;
 
+        MMStudio studio = MMStudio.getInstance();
+        URL url = studio.plugins().getBrandPlugin().getConfigFileURL();
+        if (url == null) {
+            return "No valid upload URL available";
+        }
+        return ((DefaultNotificationManager) studio.notifier()).uploadConfigFile(fileToSend);
     }
 
     private void onCloseWindow() {
@@ -425,7 +344,7 @@ public class ConfiguratorDlg2 extends MMDialog {
             } catch (InterruptedException ex) {
                 Logger.getLogger(ConfiguratorDlg2.class.getName()).log(Level.SEVERE, null, ex);
             }
-            if (0 < u.Status().length()) {
+            if (u.Status() != null && !u.Status().equals("Config file accepted")) {
                 ReportingUtils.logError("Error uploading configuration file: " + u.Status());
                 //ReportingUtils.showMessage("Error uploading configuration file:\n" + u.Status());
             }
