@@ -20,13 +20,19 @@
 package org.micromanager.notifications;
 
 import java.io.IOException;
+import java.net.ConnectException;
 
 import org.micromanager.PropertyMap;
 
 /**
  * This class provides access to the notification system for sending alerts to
  * users. It can be accessed via Studio.notifier() or
- * Studio.getNotificationManager().
+ * Studio.getNotificationManager(). Note that access to the notification
+ * system requires notifications to be enabled and for the notification server
+ * to accept your authentication information, which can be set via the
+ * Multi-D Acquisition dialog's "Enable Notifications" button.
+ * If your system is not authorized, then attempts to use methods in this
+ * class will throw IOExceptions.
  */
 public interface NotificationManager {
    /**
@@ -42,9 +48,11 @@ public interface NotificationManager {
     * Send a text notification to the current user. This requires the user
     * to have provided appropriate contact information via the GUI.
     * @param text String of the text to send to the user.
+    * @throws ConnectException if the server was not reachable. Note that
+    *         ConnectException is a subclass of IOException.
     * @throws IOException if there was an error communicating with the server.
     */
-   public void sendTextAlert(String text) throws IOException;
+   public void sendTextAlert(String text) throws IOException, ConnectException;
 
    /**
     * Enabled thread monitoring for the current thread, and allow sending
@@ -58,16 +66,20 @@ public interface NotificationManager {
     *        heartbeats, in minutes. The minimum allowed value is 2.
     * @throws IllegalArgumentException If timeout is less than 2, or if the
     *        thread is already being monitored.
+    * @throws ConnectException if the server was not reachable. Note that
+    *         ConnectException is a subclass of IOException.
     * @throws IOException if there was an error communicating with the server.
     */
-   public void startThreadHeartbeats(String text, int timeoutMinutes) throws IOException;
+   public void startThreadHeartbeats(String text, int timeoutMinutes) throws IOException, ConnectException;
 
    /**
     * Stop sending heartbeat notifications to the server for the current
     * thread.
+    * @throws ConnectException if the server was not reachable. Note that
+    *         ConnectException is a subclass of IOException.
     * @throws IOException if there was an error communicating with the server.
     */
-   public void stopThreadHeartbeats() throws IOException;
+   public void stopThreadHeartbeats() throws IOException, ConnectException;
 
    /**
     * Send a heartbeat from the current thread. You may call this method freely
@@ -76,7 +88,9 @@ public interface NotificationManager {
     * no guarantee that the heartbeat will be sent to the server immediately.
     * @throws IllegalArgumentException if the current thread is not set up for
     *         heartbeats.
+    * @throws ConnectException if the server was not reachable. Note that
+    *         ConnectException is a subclass of IOException.
     * @throws IOException if there was an error communicating with the server.
     */
-   public void sendThreadHeartbeat() throws IOException;
+   public void sendThreadHeartbeat() throws IOException, ConnectException;
 }

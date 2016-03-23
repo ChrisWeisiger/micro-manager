@@ -22,8 +22,8 @@ package org.micromanager.notifications.internal;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.Window;
-
 import java.io.IOException;
+import java.net.ConnectException;
 
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
@@ -41,6 +41,10 @@ import org.micromanager.Studio;
  */
 public class NotificationConfigDialog {
    public static void show(Window parent, Studio studio) {
+      show(parent, studio, "");
+   }
+
+   private static void show(Window parent, Studio studio, String initialAuthKey) {
       DefaultNotificationManager notifier = (DefaultNotificationManager) (studio.notifier());
       JPanel panel = new JPanel(new MigLayout());
       JLabel siteLabel = new JLabel(
@@ -76,6 +80,7 @@ public class NotificationConfigDialog {
 "<html>Click the \"Assign\" button, then copy the \"Authorization Key\"<br>" +
 "text on the website into this field:"), "span");
       JTextField keyText = new JTextField(10);
+      keyText.setText(initialAuthKey);
       panel.add(keyText, "wrap");
 
       int response = JOptionPane.showConfirmDialog(parent, panel,
@@ -92,15 +97,26 @@ public class NotificationConfigDialog {
                system, authKey);
       }
       catch (NumberFormatException e) {
-         studio.logs().showError("The input system ID is not valid.");
+         studio.logs().showError("The authorization key is not valid.");
+         show(parent, studio, keyText.getText());
          return;
       }
       catch (ArrayIndexOutOfBoundsException e) {
-         studio.logs().showError("The authorization key was not valid.");
+         studio.logs().showError("The authorization key is not valid.");
+         show(parent, studio, keyText.getText());
+         return;
+      }
+      catch (ConnectException e) {
+         studio.logs().showError("Communication with the notification server failed. Please try again in a few moments.");
+         show(parent, studio, keyText.getText());
+         return;
       }
       String message = succeeded ?
          "Success! Thank you for supporting \u00b5Manager!" :
          "Sorry, that was not a valid server ID / key combination.";
       JOptionPane.showMessageDialog(parent, message);
+      if (!succeeded) {
+         show(parent, studio, keyText.getText());
+      }
    }
 }

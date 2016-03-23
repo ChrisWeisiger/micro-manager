@@ -31,6 +31,7 @@ import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.io.UnsupportedEncodingException;
+import java.net.ConnectException;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -106,7 +107,13 @@ public class DefaultNotificationManager implements NotificationManager {
          new Thread(new Runnable() {
             @Override
             public void run() {
-               isEnabled_ = setIDs(systemId_, authKey_);
+               try {
+                  isEnabled_ = setIDs(systemId_, authKey_);
+               }
+               catch (ConnectException e) {
+                  studio_.logs().showError("Communication with the notification server failed. Notifications will not be available.");
+                  return;
+               }
                if (!isEnabled_ &&
                   (systemId_ != DEFAULT_SYSTEM_ID || authKey_ != DEFAULT_AUTH_KEY)) {
                   studio_.logs().showError("This system is unable to use notifications.");
@@ -123,27 +130,33 @@ public class DefaultNotificationManager implements NotificationManager {
    }
 
    // TODO: this should set the strings into the global profile.
-   public boolean setIDs(int systemId, String authKey) {
+   public boolean setIDs(int systemId, String authKey) throws ConnectException {
       try {
          JSONObject params = new JSONObject();
          params.put("system", systemId);
          params.put("auth_key", authKey);
          params.put("mac_address", macAddress_);
-         isEnabled_ = sendRequest("/notify/testKey", params);
-         if (isEnabled_) {
-            systemId_ = systemId;
-            authKey_ = authKey;
-            storeSystemID(systemId);
-            storeAuthKey(authKey);
+         try {
+            isEnabled_ = sendRequest("/notify/testKey", params);
+            if (isEnabled_) {
+               systemId_ = systemId;
+               authKey_ = authKey;
+               storeSystemID(systemId);
+               storeAuthKey(authKey);
+            }
+         }
+         catch (IOException e) {
+            if (!(e instanceof ConnectException)) {
+               // This should only ever happen if the keys are invalid.
+               studio_.logs().logError(e, "Error testing authentication keys");
+               return false;
+            }
+            throw((ConnectException) e);
          }
       }
       catch (JSONException e) {
          // This should never happen!
          studio_.logs().logError(e, "Error martialling parameters to test IDs");
-      }
-      catch (Exception e) {
-         // Assume the ID was invalid.
-         return false;
       }
       return isEnabled_;
    }
@@ -180,12 +193,12 @@ public class DefaultNotificationManager implements NotificationManager {
    }
 
    @Override
-   public void sendTextAlert(String text) throws IOException {
+   public void sendTextAlert(String text) throws IOException, ConnectException {
       studio_.logs().showError("Not yet implemented");
    }
 
    @Override
-   public void startThreadHeartbeats(String text, int timeoutMinutes) throws IOException {
+   public void startThreadHeartbeats(String text, int timeoutMinutes) throws IOException, ConnectException {
       if (timeoutMinutes < 2) {
          throw new IllegalArgumentException("Heartbeat timeout " + timeoutMinutes + " is too short");
       }
@@ -208,7 +221,7 @@ public class DefaultNotificationManager implements NotificationManager {
    }
 
    @Override
-   public void stopThreadHeartbeats() throws IOException {
+   public void stopThreadHeartbeats() throws IOException, ConnectException {
       Thread thread = Thread.currentThread();
       if (!monitoredThreads_.contains(thread)) {
          throw new IllegalArgumentException("Thread " + thread + " is not currenty sending heartbeats.");
@@ -334,7 +347,7 @@ public class DefaultNotificationManager implements NotificationManager {
    /**
     * Internal utility function: send a request to the server.
     */
-   private boolean sendRequest(String path, JSONObject params) throws IOException {
+   private boolean sendRequest(String path, JSONObject params) throws IOException, ConnectException {
       if (params == null) {
          // HACK: this check is because martialParams, above, returns null when
          // implausible things go wrong.
