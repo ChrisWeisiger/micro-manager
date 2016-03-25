@@ -51,6 +51,7 @@ import org.micromanager.notifications.NotificationManager;
 import org.micromanager.PropertyMap;
 import org.micromanager.Studio;
 
+import org.micromanager.internal.utils.DefaultUserProfile;
 import org.micromanager.internal.utils.MDUtils;
 
 
@@ -112,13 +113,18 @@ public class ServerComms {
                   studio_.logs().showError("This system was unable to authenticate with the server. Some services will not be available.");
                   storeSystemID(DEFAULT_SYSTEM_ID);
                   storeAuthKey(DEFAULT_AUTH_KEY);
+                  try {
+                     ((DefaultUserProfile) studio_.profile()).saveGlobalProfile();
+                  }
+                  catch (IOException e) {
+                     studio_.logs().logError(e, "Error saving global profile");
+                  }
                }
             }
          }).start();
       }
    }
 
-   // TODO: this should set the strings into the global profile.
    public static boolean setIDs(int systemId, String authKey) throws ConnectException {
       try {
          JSONObject params = new JSONObject();
@@ -132,6 +138,12 @@ public class ServerComms {
                authKey_ = authKey;
                storeSystemID(systemId);
                storeAuthKey(authKey);
+               try {
+                  ((DefaultUserProfile) studio_.profile()).saveGlobalProfile();
+               }
+               catch (IOException e) {
+                  studio_.logs().logError(e, "Error saving global profile");
+               }
             }
          }
          catch (IOException e) {
@@ -155,12 +167,12 @@ public class ServerComms {
    }
 
    private static void storeSystemID(int systemId) {
-      studio_.profile().setInt(ServerComms.class,
+      ((DefaultUserProfile) studio_.profile()).setGlobalInt(
             SYSTEM_ID, systemId);
    }
 
    private static void storeAuthKey(String authKey) {
-      studio_.profile().setString(ServerComms.class,
+      ((DefaultUserProfile) studio_.profile()).setGlobalString(
             AUTH_KEY, authKey);
    }
 
