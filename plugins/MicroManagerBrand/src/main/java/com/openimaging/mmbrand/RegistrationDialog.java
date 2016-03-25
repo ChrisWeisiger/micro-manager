@@ -256,8 +256,14 @@ public class RegistrationDialog extends JDialog {
    }
 
    public static void setHaveRegistered(boolean haveRegistered) {
-      DefaultUserProfile.getInstance().setBoolean(
+      DefaultUserProfile.getInstance().setGlobalBoolean(
             RegistrationDialog.class, HAVE_REGISTERED, haveRegistered);
+      try {
+         DefaultUserProfile.getInstance().saveGlobalProfile();
+      }
+      catch (IOException e) {
+         ReportingUtils.logError(e, "Error saving global profile");
+      }
    }
 
    public static boolean getShouldNeverRegister() {
@@ -266,7 +272,13 @@ public class RegistrationDialog extends JDialog {
    }
 
    public static void setShouldNeverRegister(boolean haveRegistered) {
-      DefaultUserProfile.getInstance().setBoolean(
+      DefaultUserProfile.getInstance().setGlobalBoolean(
             RegistrationDialog.class, SHOULD_NEVER_REGISTER, haveRegistered);
+      try {
+         DefaultUserProfile.getInstance().saveGlobalProfile();
+      }
+      catch (IOException e) {
+         ReportingUtils.logError(e, "Error saving global profile");
+      }
    }
 }
