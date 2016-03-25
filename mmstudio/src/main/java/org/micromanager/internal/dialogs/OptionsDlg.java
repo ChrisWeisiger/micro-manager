@@ -190,11 +190,7 @@ public class OptionsDlg extends MMDialog {
             if (answer != JOptionPane.YES_OPTION) {
                return;
             }
-            // Clear everything except whether or not this user has
-            // registered.
-            boolean haveRegistered = RegistrationDlg.getHaveRegistered();
             DefaultUserProfile.getInstance().clearProfile();
-            RegistrationDlg.setHaveRegistered(haveRegistered);
             // Rather than updating all the GUI elements, let's just close
             // the dialog.
             dispose();

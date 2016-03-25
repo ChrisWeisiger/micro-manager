@@ -2,11 +2,11 @@ package org.micromanager.internal.menus;
 
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
+import javax.swing.JMenuItem;
 
 import mmcorej.CMMCore;
 
 import org.micromanager.internal.dialogs.AboutDlg;
-import org.micromanager.internal.dialogs.RegistrationDlg;
 import org.micromanager.internal.MMStudio;
 import org.micromanager.internal.MMVersion;
 import org.micromanager.internal.utils.GUIUtils;
@@ -35,22 +35,11 @@ public class HelpMenu {
       GUIUtils.addMenuItem(helpMenu, "Configuration Guide", null,
          GUIUtils.makeURLRunnable("http://micro-manager.org/wiki/Micro-Manager_Configuration_Guide")
       );
-        
-      if (!RegistrationDlg.getHaveRegistered()) {
-         GUIUtils.addMenuItem(helpMenu, 
-            "Register your copy of Micro-Manager...", null,
-            new Runnable() {
-               @Override
-               public void run() {
-                  try {
-                     RegistrationDlg regDlg = new RegistrationDlg();
-                     regDlg.setVisible(true);
-                  } catch (Exception e1) {
-                     ReportingUtils.showError(e1);
-                  }
-               }
-            }
-         );
+
+      if (studio_.plugins().getBrandPlugin().getHelpMenuItems() != null) {
+         for (JMenuItem item : studio_.plugins().getBrandPlugin().getHelpMenuItems()) {
+            helpMenu.add(item);
+         }
       }
 
       GUIUtils.addMenuItem(helpMenu, "Report Problem...", null,

@@ -105,7 +105,6 @@ import org.micromanager.internal.dialogs.AcqControlDlg;
 import org.micromanager.internal.dialogs.CalibrationListDlg;
 import org.micromanager.internal.dialogs.IntroDlg;
 import org.micromanager.internal.dialogs.OptionsDlg;
-import org.micromanager.internal.dialogs.RegistrationDlg;
 import org.micromanager.internal.dialogs.IJVersionCheckDlg;
 
 import org.micromanager.events.internal.DefaultEventManager;
@@ -264,8 +263,6 @@ public class MMStudio implements Studio, CompatibilityInterface, PositionListMan
          startupScriptFile_ = "";
       }
 
-      RegistrationDlg.showIfNecessary();
-
       try {
          core_ = new CMMCore();
       } catch(UnsatisfiedLinkError ex) {
@@ -400,6 +397,8 @@ public class MMStudio implements Studio, CompatibilityInterface, PositionListMan
          ReportingUtils.logMessage("Finished waiting for plugins to load");
       }
 
+      plugins().getBrandPlugin().beforeLogin();
+
       // The MainFrame relies on plugins.
       frame_ = new MainFrame(this, core_, snapLiveManager_, menuBar_);
       frame_.paintToFront();
@@ -419,6 +418,8 @@ public class MMStudio implements Studio, CompatibilityInterface, PositionListMan
       }
       // Now that profile is selected, set the look and feel for everything.
       DaytimeNighttime.setMode(DaytimeNighttime.getBackgroundMode());
+
+      plugins().getBrandPlugin().afterLogin();
 
       IJVersionCheckDlg.execute();
 
