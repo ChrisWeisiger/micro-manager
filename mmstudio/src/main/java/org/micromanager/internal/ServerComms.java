@@ -186,17 +186,11 @@ public class ServerComms {
       args.add(macAddress_);
       try {
          if (systemId_ != null) {
-            // This one parameter is an int, not a string.
-            params.put(URLEncoder.encode("system", CHARSET), systemId_);
+            params.put("system", systemId_);
          }
          for (int i = 0; i < args.size(); i += 2) {
-            params.put(URLEncoder.encode(args.get(i), CHARSET),
-                  URLEncoder.encode(args.get(i + 1), CHARSET));
+            params.put(args.get(i), args.get(i + 1));
          }
-      }
-      catch (UnsupportedEncodingException e) {
-         studio_.logs().logError(e, "Invalid character encoding " + CHARSET);
-         return null;
       }
       catch (JSONException e) {
          studio_.logs().logError(e, "Error creating JSON parameters list");
