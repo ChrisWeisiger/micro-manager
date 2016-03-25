@@ -20,9 +20,11 @@
 package org.micromanager;
 
 import java.net.URL;
+import java.util.Collection;
 
 import javax.swing.JButton;
 import javax.swing.JComboBox;
+import javax.swing.JMenuItem;
 import javax.swing.JPanel;
 
 /**
@@ -41,6 +43,7 @@ public abstract class BrandPlugin implements MMPlugin {
    public String getOwnerName() {
       return "Generic Owner";
    }
+
    /**
     * Provide the contents of the intro dialog, except for the cancel/OK
     * buttons.
@@ -83,8 +86,23 @@ public abstract class BrandPlugin implements MMPlugin {
    }
 
    /**
+    * This callback is invoked as soon as possible after plugins are finished
+    * loading, allowing the plugin to perform actions that should occur
+    * prior to the intro dialog being displayed.
+    */
+   public void beforeLogin() {}
+
+   /**
     * This callback is invoked after the user logs in, allowing the plugin to
     * perform whatever special actions it feels are appropriate.
     */
    public void afterLogin() {}
+
+   /**
+    * Provide a list of JMenuItems to insert into the Help menu. May be null.
+    * @return list of Help menu items, or null.
+    */
+   public Collection<JMenuItem> getHelpMenuItems() {
+      return null;
+   }
 }
