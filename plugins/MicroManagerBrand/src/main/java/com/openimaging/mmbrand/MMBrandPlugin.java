@@ -21,12 +21,17 @@ package com.openimaging.mmbrand;
 
 import com.bulenkov.iconloader.IconLoader;
 
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.ArrayList;
+import java.util.List;
 
 import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JLabel;
+import javax.swing.JMenuItem;
 import javax.swing.JPanel;
 
 import net.miginfocom.swing.MigLayout;
@@ -110,7 +115,25 @@ public class MMBrandPlugin extends BrandPlugin implements SciJavaPlugin {
       }
    }
 
-   // TODO: test for registration
    @Override
-   public void afterLogin() {}
+   public void beforeLogin() {}
+
+   @Override
+   public void afterLogin() {
+      RegistrationDialog.showIfNecessary(studio_);
+   }
+
+   @Override
+   public List<JMenuItem> getHelpMenuItems() {
+      ArrayList<JMenuItem> result = new ArrayList<JMenuItem>();
+      JMenuItem reg = new JMenuItem("Register \u00b5Manager");
+      reg.addActionListener(new ActionListener() {
+         @Override
+         public void actionPerformed(ActionEvent e) {
+            new RegistrationDialog(studio_).setVisible(true);
+         }
+      });
+      result.add(reg);
+      return result;
+   }
 }

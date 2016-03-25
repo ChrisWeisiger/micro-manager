@@ -50,7 +50,7 @@ public class IntroPanel extends JPanel {
 
       JLabel profileLabel = new JLabel("User Profile:");
       profileLabel.setFont(stdFont);
-      add(profileLabel, "split, spanx");
+      add(profileLabel, "split, spanx, gapleft rel");
       profileSelect.setFont(stdFont);
       add(profileSelect, "width 150!");
       profileDelete.setFont(stdFont);
