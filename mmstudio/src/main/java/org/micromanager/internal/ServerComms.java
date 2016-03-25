@@ -168,12 +168,12 @@ public class ServerComms {
 
    private static void storeSystemID(int systemId) {
       ((DefaultUserProfile) studio_.profile()).setGlobalInt(
-            SYSTEM_ID, systemId);
+            ServerComms.class, SYSTEM_ID, systemId);
    }
 
    private static void storeAuthKey(String authKey) {
       ((DefaultUserProfile) studio_.profile()).setGlobalString(
-            AUTH_KEY, authKey);
+            ServerComms.class, AUTH_KEY, authKey);
    }
 
    public static String getMacAddress() {
