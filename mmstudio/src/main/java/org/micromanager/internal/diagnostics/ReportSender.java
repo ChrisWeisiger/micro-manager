@@ -19,7 +19,8 @@ import com.google.common.io.ByteStreams;
 import java.net.URL;
 
 import org.micromanager.Studio;
-import org.micromanager.notifications.internal.DefaultNotificationManager;
+
+import org.micromanager.internal.ServerComms;
 
 /**
  * Upload a textual problem report.
@@ -40,7 +41,7 @@ public class ReportSender {
       String response = null;
       try {
          saveReportToGZIPFile(report, tempFile);
-         response = ((DefaultNotificationManager) studio.notifier()).uploadProblemReport(tempFile);
+         response = ServerComms.uploadProblemReport(tempFile);
       }
       finally {
          tempFile.delete();

@@ -51,30 +51,17 @@ import org.micromanager.notifications.NotificationManager;
 import org.micromanager.PropertyMap;
 import org.micromanager.Studio;
 
+import org.micromanager.internal.ServerComms;
 import org.micromanager.internal.utils.MDUtils;
 
 
 public class DefaultNotificationManager implements NotificationManager {
-   private Studio studio_;
-
-   private static final String DEFAULT_SERVER = "http://127.0.0.1:8000";
-   private static final String CHARSET = "UTF-8";
-   private static final String CRLF = "\r\n";
-
-   private static final String SYSTEM_ID = "system ID for communicating with the notification server";
-   private static final String AUTH_KEY = "authentication key for communicating with the notification server";
-   private static final int DEFAULT_SYSTEM_ID = -1;
-   private static final String DEFAULT_AUTH_KEY = "hello123";
    private static final String CONTACT_EMAIL = "email address to send notifications to";
    private static final String CONTACT_CELLPHONE = "cellphone to send notifications to";
 
    private static final Integer MONITOR_SLEEP_TIME = 3000;
 
-   private boolean isEnabled_ = false;
-   // Part of authentication to the server.
-   private Integer systemId_;
-   private String authKey_;
-   private String macAddress_ = "";
+   private Studio studio_;
    private String contactEmail_ = "";
    private String contactCellphone_ = "";
    // Threads that we are currently monitoring.
@@ -85,80 +72,10 @@ public class DefaultNotificationManager implements NotificationManager {
 
    public DefaultNotificationManager(Studio studio) {
       studio_ = studio;
-      systemId_ = studio_.profile().getInt(DefaultNotificationManager.class,
-            SYSTEM_ID, DEFAULT_SYSTEM_ID);
-      authKey_ = studio_.profile().getString(DefaultNotificationManager.class,
-            AUTH_KEY, DEFAULT_AUTH_KEY);
-
-      mmcorej.StrVector addrs = studio_.core().getMACAddresses();
-      if (addrs.size() > 0) {
-         String addr = addrs.get(0);
-         if (addr.length() > 0) {
-            macAddress_ = addr;
-         }
-      }
-      if (macAddress_.equals("")) {
-         studio_.logs().logError("Unable to determine MAC address.");
-      }
-      // TODO: do we really want to communicate with the server on every
-      // launch?
-      if (systemId_ != DEFAULT_SYSTEM_ID ||
-            !authKey_.equals(DEFAULT_AUTH_KEY)) {
-         new Thread(new Runnable() {
-            @Override
-            public void run() {
-               try {
-                  isEnabled_ = setIDs(systemId_, authKey_);
-               }
-               catch (ConnectException e) {
-                  studio_.logs().showError("Communication with the notification server failed. Notifications will not be available.");
-                  return;
-               }
-               if (!isEnabled_ &&
-                  (systemId_ != DEFAULT_SYSTEM_ID || authKey_ != DEFAULT_AUTH_KEY)) {
-                  studio_.logs().showError("This system is unable to use notifications.");
-                  storeSystemID(DEFAULT_SYSTEM_ID);
-                  storeAuthKey(DEFAULT_AUTH_KEY);
-               }
-            }
-         }).start();
-      }
       contactEmail_ = studio_.profile().getString(
                DefaultNotificationManager.class, CONTACT_EMAIL, "");
       contactCellphone_ = studio_.profile().getString(
                DefaultNotificationManager.class, CONTACT_CELLPHONE, "");
-   }
-
-   // TODO: this should set the strings into the global profile.
-   public boolean setIDs(int systemId, String authKey) throws ConnectException {
-      try {
-         JSONObject params = new JSONObject();
-         params.put("system", systemId);
-         params.put("auth_key", authKey);
-         params.put("mac_address", macAddress_);
-         try {
-            isEnabled_ = sendRequest("/notify/testKey", params);
-            if (isEnabled_) {
-               systemId_ = systemId;
-               authKey_ = authKey;
-               storeSystemID(systemId);
-               storeAuthKey(authKey);
-            }
-         }
-         catch (IOException e) {
-            if (!(e instanceof ConnectException)) {
-               // This should only ever happen if the keys are invalid.
-               studio_.logs().logError(e, "Error testing authentication keys");
-               return false;
-            }
-            throw((ConnectException) e);
-         }
-      }
-      catch (JSONException e) {
-         // This should never happen!
-         studio_.logs().logError(e, "Error martialling parameters to test IDs");
-      }
-      return isEnabled_;
    }
 
    public void setContactCellphone(String cellphone) {
@@ -173,28 +90,14 @@ public class DefaultNotificationManager implements NotificationManager {
             CONTACT_EMAIL, email);
    }
 
-   private void storeSystemID(int systemId) {
-      studio_.profile().setInt(DefaultNotificationManager.class,
-            SYSTEM_ID, systemId);
-   }
-
-   private void storeAuthKey(String authKey) {
-      studio_.profile().setString(DefaultNotificationManager.class,
-            AUTH_KEY, authKey);
-   }
-
-   public String getMacAddress() {
-      return macAddress_;
-   }
-
    @Override
    public boolean getCanUseNotifications() {
-      return isEnabled_;
+      return ServerComms.isEnabled();
    }
 
    @Override
    public void sendTextAlert(String text) throws IOException, ConnectException {
-      studio_.logs().showError("Not yet implemented");
+      studio_.logs().showError("sendTextAlert is not yet implemented");
    }
 
    @Override
@@ -209,11 +112,12 @@ public class DefaultNotificationManager implements NotificationManager {
       synchronized(monitoredThreads_) {
          monitoredThreads_.add(thread);
       }
-      sendRequest("/notify/startMonitor", martialParams(
-            "monitor_id", Long.toString(thread.getId()),
-            "failure_text", text, "email", contactEmail_,
-            "cellphone", contactCellphone_,
-            "timeout_minutes", Integer.toString(timeoutMinutes)));
+      ServerComms.sendRequest("/notify/startMonitor",
+            ServerComms.martialParams(
+               "monitor_id", Long.toString(thread.getId()),
+               "failure_text", text, "email", contactEmail_,
+               "cellphone", contactCellphone_,
+               "timeout_minutes", Integer.toString(timeoutMinutes)));
       if (threadMonitor_ == null) {
          // Time to start monitoring.
          restartMonitor();
@@ -240,7 +144,7 @@ public class DefaultNotificationManager implements NotificationManager {
             }
          }
       }
-      sendRequest("/notify/stopMonitor", martialParams(
+      ServerComms.sendRequest("/notify/stopMonitor", ServerComms.martialParams(
             "monitor_id", Long.toString(thread.getId())));
    }
 
@@ -282,8 +186,9 @@ public class DefaultNotificationManager implements NotificationManager {
          }
          for (Thread thread : uniquifiedHeartbeats) {
             try {
-               sendRequest("/notify/heartbeat", martialParams(
-                     "monitor_id", Long.toString(thread.getId())));
+               ServerComms.sendRequest("/notify/heartbeat",
+                     ServerComms.martialParams(
+                        "monitor_id", Long.toString(thread.getId())));
             }
             catch (IOException e) {
                studio_.logs().logError(e, "Error sending heartbeat for " + thread.getId());
@@ -294,8 +199,9 @@ public class DefaultNotificationManager implements NotificationManager {
             for (Thread thread : new ArrayList<Thread>(monitoredThreads_)) {
                if (!thread.isAlive()) {
                   try {
-                     sendRequest("/notify/monitorFailure", martialParams(
-                           "monitor_id", Long.toString(thread.getId())));
+                     ServerComms.sendRequest("/notify/monitorFailure",
+                           ServerComms.martialParams(
+                              "monitor_id", Long.toString(thread.getId())));
                      monitoredThreads_.remove(thread);
                   }
                   catch (IOException e) {
@@ -304,193 +210,6 @@ public class DefaultNotificationManager implements NotificationManager {
                }
             }
          }
-      }
-   }
-
-   /**
-    * Internal utility function: generate a JSONObject containing the provided
-    * list of parameters, as well as our server ID, auth key, and MAC address.
-    */
-   private JSONObject martialParams(String... argsArray) {
-      if (argsArray.length % 2 != 0) {
-         throw new IllegalArgumentException("Uneven parameter list");
-      }
-      JSONObject params = new JSONObject();
-      ArrayList<String> args = new ArrayList<String>(Arrays.asList(argsArray));
-      if (authKey_ != null) {
-         args.add("auth_key");
-         args.add(authKey_);
-      }
-      args.add("mac_address");
-      args.add(macAddress_);
-      try {
-         if (systemId_ != null) {
-            // This one parameter is an int, not a string.
-            params.put(URLEncoder.encode("system", CHARSET), systemId_);
-         }
-         for (int i = 0; i < args.size(); i += 2) {
-            params.put(URLEncoder.encode(args.get(i), CHARSET),
-                  URLEncoder.encode(args.get(i + 1), CHARSET));
-         }
-      }
-      catch (UnsupportedEncodingException e) {
-         studio_.logs().logError(e, "Invalid character encoding " + CHARSET);
-         return null;
-      }
-      catch (JSONException e) {
-         studio_.logs().logError(e, "Error creating JSON parameters list");
-         return null;
-      }
-      return params;
-   }
-
-   /**
-    * Internal utility function: send a request to the server.
-    */
-   private boolean sendRequest(String path, JSONObject params) throws IOException, ConnectException {
-      if (params == null) {
-         // HACK: this check is because martialParams, above, returns null when
-         // implausible things go wrong.
-         return false;
-      }
-      try {
-         URL url = new URL(DEFAULT_SERVER + path);
-         HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-         connection.setRequestProperty("Content-Type", "application/json");
-         connection.setRequestProperty("Accept-Charset", CHARSET);
-         connection.setDoOutput(true);
-         OutputStream out = connection.getOutputStream();
-         out.write(params.toString().getBytes(CHARSET));
-         // Actually perform the post.
-         int responseCode = connection.getResponseCode();
-         if (responseCode >= 200 && responseCode <= 299) {
-            return true;
-         }
-         // Read any error message from the server and throw an IOException
-         // with the error as the contents.
-         InputStream stream = connection.getErrorStream();
-         if (stream == null) {
-            stream = connection.getInputStream();
-         }
-         BufferedReader reader = new BufferedReader(
-               new InputStreamReader(stream));
-         String error = "";
-         while (true) {
-            String line = reader.readLine();
-            if (line == null) {
-               break;
-            }
-            error += line;
-         }
-         throw new IOException(error);
-      }
-      catch (MalformedURLException e) {
-         studio_.logs().logError(e, "Bad URL format " + path);
-         return false;
-      }
-   }
-
-   /**
-    * Sends a problem report file to the server, including auth information if
-    * it is available (but we allow anonymous problem reports as well). Returns
-    * any error string if something went wrong.
-    * TODO: it's kind of weird that this and uploadProblemReport are part of
-    * the "notifications" logic.
-    */
-   public String uploadConfigFile(File file) {
-      URL url = studio_.plugins().getBrandPlugin().getConfigFileURL();
-      if (url == null) {
-         return "No valid upload URL";
-      }
-      return uploadFile(url, file, "config", "Config file accepted");
-   }
-
-   /**
-    * Sends a problem report file to the server, including auth information if
-    * it is available (but we allow anonymous problem reports as well). Returns
-    * any error string if something went wrong.
-    * TODO: it's kind of weird that this and uploadConfigFile are part of
-    * the "notifications" logic.
-    */
-   public String uploadProblemReport(File file) {
-      URL url = studio_.plugins().getBrandPlugin().getProblemReportURL();
-      if (url == null) {
-         return "No valid upload URL";
-      }
-      return uploadFile(url, file, "report", "Problem report accepted");
-   }
-
-   /**
-    * Adapted from
-    * http://stackoverflow.com/questions/2469451/upload-files-from-java-client-to-a-http-server
-    */
-   private String uploadFile(URL url, File file, String fileParamName,
-         String successString) {
-      try {
-         String boundary = String.format(
-               "-------------------MMBoundary%d", System.currentTimeMillis());
-         URLConnection connection = url.openConnection();
-         connection.setDoOutput(true);
-         connection.setRequestProperty("Content-Type", "multipart/form-data; boundary=" + boundary);
-         OutputStream output = connection.getOutputStream();
-         PrintWriter writer = new PrintWriter(
-               new OutputStreamWriter(output, CHARSET), true);
-
-         // Send POST data.
-         JSONObject params = martialParams("mac_address", macAddress_);
-         for (String key : MDUtils.getKeys(params)) {
-            writer.append("--" + boundary).append(CRLF);
-            writer.append(String.format(
-                  "Content-Disposition: form-data; name=\"%s\"%s",
-                  key, CRLF));
-            writer.append(String.format(
-                     "Content-Type: text/plain; charset=%s%s", CHARSET, CRLF));
-            writer.append(CRLF).append(params.getString(key)).append(CRLF);
-            writer.flush();
-         }
-
-         // Send text file.
-         writer.append("--" + boundary).append(CRLF);
-         writer.append(String.format(
-                  "Content-Disposition: form-data; name=\"%s\"; filename=\"%s\"%s", fileParamName, file.getName(), CRLF));
-         writer.append(String.format(
-                  "Content-Type: text/plain; charset=%s%s", CHARSET, CRLF));
-         writer.append(CRLF).flush();
-         ByteStreams.copy(new FileInputStream(file), output);
-         output.flush(); // Important before continuing with writer!
-         writer.append(CRLF).flush(); // CRLF is important! It indicates end of boundary.
-
-         // End of multipart/form-data.
-         writer.append("--" + boundary + "--").append(CRLF).flush();
-
-         // Read response.
-         InputStream stream = connection.getInputStream();
-         BufferedReader reader = new BufferedReader(
-               new InputStreamReader(stream));
-         String response = "";
-         while (true) {
-            String line = reader.readLine();
-            if (line == null) {
-               break;
-            }
-            response += line;
-         }
-         if (!response.equals(successString)) {
-            return response;
-         }
-         return null;
-      }
-      catch (IOException e) {
-         studio_.logs().logError(e, "Error uploading file to server");
-         return "Error communicating with server";
-      }
-      catch (JSONException e) {
-         studio_.logs().logError(e, "Error inserting JSON params when uploading file");
-         return "File upload failed";
-      }
-      catch (Exception e) {
-         studio_.logs().logError(e);
-         return e.toString();
       }
    }
 }

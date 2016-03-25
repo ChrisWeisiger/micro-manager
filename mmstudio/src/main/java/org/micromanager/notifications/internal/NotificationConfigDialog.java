@@ -32,8 +32,10 @@ import javax.swing.JTextField;
 
 import net.miginfocom.swing.MigLayout;
 
-import org.micromanager.internal.utils.GUIUtils;
 import org.micromanager.Studio;
+
+import org.micromanager.internal.ServerComms;
+import org.micromanager.internal.utils.GUIUtils;
 
 /**
  * Shows a dialog allowing the user to set the system ID and authentication key
@@ -45,7 +47,6 @@ public class NotificationConfigDialog {
    }
 
    private static void show(Window parent, Studio studio, String initialAuthKey) {
-      DefaultNotificationManager notifier = (DefaultNotificationManager) (studio.notifier());
       JPanel panel = new JPanel(new MigLayout());
       JLabel siteLabel = new JLabel(
             "<html><a href=\"http://open-imaging.com\">http://open-imaging.com</a></html>");
@@ -73,7 +74,7 @@ public class NotificationConfigDialog {
       panel.add(new JLabel(
 "<html>To enable notifications for this system, copy this text into the<br>" +
 "\"Assigned System\" text on the website:</html>"), "span");
-      JTextField macText = new JTextField(notifier.getMacAddress());
+      JTextField macText = new JTextField(ServerComms.getMacAddress());
       macText.setEditable(false);
       panel.add(macText, "wrap");
       panel.add(new JLabel(
@@ -93,8 +94,7 @@ public class NotificationConfigDialog {
       try {
          Integer system = Integer.parseInt(keyText.getText().split(":", 2)[0]);
          String authKey = keyText.getText().split(":", 2)[1];
-         succeeded = ((DefaultNotificationManager) studio.notifier()).setIDs(
-               system, authKey);
+         succeeded = ServerComms.setIDs(system, authKey);
       }
       catch (NumberFormatException e) {
          studio.logs().showError("The authorization key is not valid.");

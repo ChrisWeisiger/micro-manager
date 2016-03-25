@@ -60,8 +60,8 @@ import javax.swing.text.DefaultCaret;
 import mmcorej.CMMCore;
 import mmcorej.StrVector;
 
-import org.micromanager.notifications.internal.DefaultNotificationManager;
 import org.micromanager.internal.MMStudio;
+import org.micromanager.internal.ServerComms;
 import org.micromanager.internal.utils.DefaultUserProfile;
 import org.micromanager.internal.utils.FileDialogs;
 import org.micromanager.internal.utils.MMDialog;
@@ -292,7 +292,7 @@ public class ConfiguratorDlg2 extends MMDialog {
         if (url == null) {
             return "No valid upload URL available";
         }
-        return ((DefaultNotificationManager) studio.notifier()).uploadConfigFile(fileToSend);
+        return ServerComms.uploadConfigFile(fileToSend);
     }
 
     private void onCloseWindow() {
