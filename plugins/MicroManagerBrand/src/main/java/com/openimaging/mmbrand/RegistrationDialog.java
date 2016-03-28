@@ -66,14 +66,6 @@ public class RegistrationDialog extends JDialog {
    public static final String HAVE_REGISTERED = "this user has registered with Micro-Manager";
    public static final String SHOULD_NEVER_REGISTER = "this user never wants to be prompted to register";
 
-//   if anyone has ever regged with us, do not show
-//   ask for first name, last name, org, email
-//   checkbox for send me email, default checked
-//   optional Open Imaging system ID field (marked optional; all other fields required)
-//   optional system nickname?
-//   link to privacy policy
-//   send info up to server
-//   add ip address as column to DB for config files, problem reports
    /**
     * Display the registration dialog, if the user has not registered and not
     * opted out of registering.
