@@ -464,7 +464,8 @@ public class MainFrame extends MMFrame implements LiveModeListener {
       subPanel.add(createImagingSettingsWidgets(), "gapleft 10, growx, wrap");
       subPanel.add(createUtilityButtons(), "span, wrap");
       subPanel.add(createPleaLabel(), "span, wrap");
-      subPanel.add(studio_.plugins().getBrandPlugin().getMainWindowPanel());
+      subPanel.add(studio_.plugins().getBrandPlugin().getMainWindowPanel(),
+            "span, wrap");
       overPanel.add(subPanel, "gapbottom push, grow 0, pushx 0");
       overPanel.add(createConfigurationControls(), "grow, wrap, pushx 100");
       // Must not be a completely empty label or else our size calculations
