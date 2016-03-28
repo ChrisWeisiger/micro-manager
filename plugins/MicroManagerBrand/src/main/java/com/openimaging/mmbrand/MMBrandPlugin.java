@@ -23,6 +23,9 @@ import com.bulenkov.iconloader.IconLoader;
 
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.MouseEvent;
+import java.awt.event.MouseAdapter;
+import java.awt.Font;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
@@ -42,6 +45,8 @@ import org.micromanager.Studio;
 import org.scijava.plugin.Plugin;
 import org.scijava.plugin.SciJavaPlugin;
 
+import org.micromanager.internal.ServerComms;
+import org.micromanager.internal.utils.GUIUtils;
 
 @Plugin(type=BrandPlugin.class)
 public class MMBrandPlugin extends BrandPlugin implements SciJavaPlugin {
@@ -87,9 +92,22 @@ public class MMBrandPlugin extends BrandPlugin implements SciJavaPlugin {
    // TODO: add logo
    @Override
    public JPanel getMainWindowPanel() {
-      JPanel result = new JPanel(new MigLayout("insets 0"));
-      result.add(new JLabel(IconLoader.getIcon(
-                  "/com/openimaging/brand/oi_logo_small.png")));
+      JPanel result = new JPanel(new MigLayout("fill, insets 0"));
+      JLabel link;
+      if (ServerComms.isEnabled()) {
+         link = new JLabel("<html>Thank you for supporting \u00b5Manager development!</html>");
+      }
+      else {
+         link = new JLabel("<html><a href=\"\">Get Support</a> for \u00b5Manager!</html>");
+         link.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mousePressed(MouseEvent e) {
+               new Thread(GUIUtils.makeURLRunnable("https://open-imaging.com/services")).start();
+            }
+         });
+      }
+      link.setFont(new Font("Arial", Font.PLAIN, 10));
+      result.add(link);
       return result;
    }
 
