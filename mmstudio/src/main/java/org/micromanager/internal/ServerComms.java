@@ -249,6 +249,12 @@ public class ServerComms {
             }
             error += line;
          }
+         // Some of our errors can be JSONObjects; convert and pretty-print if
+         // possible.
+         try {
+            error = new JSONObject(error).toString(2);
+         }
+         catch (JSONException ignored) {}
          throw new IOException(error);
       }
       catch (MalformedURLException e) {
