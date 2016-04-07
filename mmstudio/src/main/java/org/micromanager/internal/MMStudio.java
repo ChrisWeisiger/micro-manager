@@ -363,7 +363,6 @@ public class MMStudio implements Studio, CompatibilityInterface, PositionListMan
       dataManager_ = new DefaultDataManager();
       displayManager_ = new DefaultDisplayManager(this);
 
-      ServerComms.initialize(this);
       afMgr_ = new DefaultAutofocusManager(studio_);
       notificationManager_ = new DefaultNotificationManager(this);
       pluginManager_ = new DefaultPluginManager(studio_, menuBar_);
@@ -421,6 +420,8 @@ public class MMStudio implements Studio, CompatibilityInterface, PositionListMan
       DaytimeNighttime.setMode(DaytimeNighttime.getBackgroundMode());
 
       plugins().getBrandPlugin().afterLogin();
+
+      ServerComms.initialize(this);
 
       IJVersionCheckDlg.execute();
 

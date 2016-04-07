@@ -21,6 +21,7 @@ package org.micromanager.internal;
 
 import com.google.common.io.ByteStreams;
 
+import java.awt.GraphicsEnvironment;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
@@ -42,6 +43,13 @@ import java.util.Arrays;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.HashMap;
 import java.util.HashSet;
+
+import javax.swing.JCheckBox;
+import javax.swing.JLabel;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+
+import net.miginfocom.swing.MigLayout;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -66,6 +74,8 @@ public class ServerComms {
 
    private static final String SYSTEM_ID = "system ID for communicating with the server";
    private static final String AUTH_KEY = "authentication key for communicating with the server";
+   private static final String SUPPRESS_AUTH_WARNINGS = "should suppress warnings about authenticating with the server";
+   private static final String SUPPRESS_CONNECT_WARNINGS = "should suppress warnings about connecting to the server";
    private static final int DEFAULT_SYSTEM_ID = -1;
    private static final String DEFAULT_AUTH_KEY = "invalid auth key";
 
@@ -105,24 +115,39 @@ public class ServerComms {
                   isEnabled_ = setIDs(systemId_, authKey_);
                }
                catch (ConnectException e) {
-                  studio_.logs().showError("Communication with the server failed. Services that depend on the server will not be available.");
+                  showDialog("Communication with the server failed. Services that depend on the server will not be available.",
+                        SUPPRESS_CONNECT_WARNINGS);
                   return;
                }
-               if (!isEnabled_ &&
-                  (systemId_ != DEFAULT_SYSTEM_ID || authKey_ != DEFAULT_AUTH_KEY)) {
-                  studio_.logs().showError("This system was unable to authenticate with the server. Some services will not be available.");
-                  storeSystemID(DEFAULT_SYSTEM_ID);
-                  storeAuthKey(DEFAULT_AUTH_KEY);
-                  try {
-                     ((DefaultUserProfile) studio_.profile()).saveGlobalProfile();
-                  }
-                  catch (IOException e) {
-                     studio_.logs().logError(e, "Error saving global profile");
-                  }
+               if (!isEnabled_) {
+                  showDialog("This system was unable to authenticate with the server. Some services will not be available.",
+                        SUPPRESS_AUTH_WARNINGS);
                }
             }
          }).start();
       }
+   }
+
+   /**
+    * Shows the specified error, with a "Do not show me again" checkbox, whose
+    * state is stored in the specified profile key.
+    */
+   private static void showDialog(String error, String suppressKey) {
+      if (studio_.profile().getBoolean(ServerComms.class,
+               suppressKey, false)) {
+         return;
+      }
+      if (GraphicsEnvironment.isHeadless()) {
+         studio_.logs().logError(error);
+         return;
+      }
+      JPanel panel = new JPanel(new MigLayout());
+      panel.add(new JLabel(error), "span, wrap");
+      JCheckBox checkbox = new JCheckBox("Do not show me this again.");
+      panel.add(checkbox);
+      JOptionPane.showMessageDialog(null, panel);
+      studio_.profile().setBoolean(ServerComms.class,
+            suppressKey, checkbox.isSelected());
    }
 
    public static void clearIDs() {
@@ -138,6 +163,18 @@ public class ServerComms {
    }
 
    public static boolean setIDs(int systemId, String authKey) throws ConnectException {
+      int oldId = studio_.profile().getInt(ServerComms.class,
+            SYSTEM_ID, DEFAULT_SYSTEM_ID);
+      String oldKey = studio_.profile().getString(ServerComms.class,
+            AUTH_KEY, DEFAULT_AUTH_KEY);
+      if (systemId != oldId && !authKey.contentEquals(oldKey)) {
+         // Setting new connection parameters, so we should allow errors
+         // to be shown again.
+         studio_.profile().setBoolean(ServerComms.class,
+               SUPPRESS_AUTH_WARNINGS, false);
+         studio_.profile().setBoolean(ServerComms.class,
+               SUPPRESS_CONNECT_WARNINGS, false);
+      }
       try {
          JSONObject params = new JSONObject();
          params.put("system", systemId);
@@ -176,6 +213,28 @@ public class ServerComms {
 
    public static boolean isEnabled() {
       return isEnabled_;
+   }
+
+   /**
+    * Return system ID and auth key as a colon-delimited string.
+    */
+   public static String getIDString() {
+      if (systemId_ != DEFAULT_SYSTEM_ID &&
+            !authKey_.contentEquals(DEFAULT_AUTH_KEY)) {
+         return String.format("%d:%s", systemId_, authKey_);
+      }
+      return "";
+   }
+
+   /**
+    * Set ID and auth key via a string formatted as "id:key". As we parse
+    * a string's contents, errors are to be expected. Returns true if keys
+    * are valid (i.e. can authenticate with the server).
+    */
+   public static boolean setIDString(String keyText) throws NumberFormatException, ArrayIndexOutOfBoundsException, ConnectException {
+      Integer system = Integer.parseInt(keyText.split(":", 2)[0]);
+      String authKey = keyText.split(":", 2)[1];
+      return setIDs(system, authKey);
    }
 
    private static void storeSystemID(int systemId) {

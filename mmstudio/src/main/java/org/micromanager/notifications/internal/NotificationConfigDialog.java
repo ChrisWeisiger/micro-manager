@@ -46,10 +46,15 @@ import org.micromanager.internal.utils.GUIUtils;
  */
 public class NotificationConfigDialog {
    public static void show(Window parent, Studio studio) {
-      show(parent, studio, "");
+      show(parent, studio, ServerComms.getIDString());
    }
 
-   private static void show(Window parent, Studio studio, String initialAuthKey) {
+   /**
+    * This method shows the dialog, and may call itself to re-show. The
+    * initialKey parameter means we don't lose the user's input if we need to
+    * re-show.
+    */
+   public static void show(Window parent, Studio studio, String initialKey) {
       JPanel panel = new JPanel(new MigLayout());
       JLabel siteLabel = new JLabel(
             "<html><a href=\"http://open-imaging.com\">http://open-imaging.com</a></html>");
@@ -59,24 +64,30 @@ public class NotificationConfigDialog {
             new Thread(GUIUtils.makeURLRunnable("https://open-imaging.com")).start();
          }
       });
+
+      final JTextField keyText = new JTextField(10);
+      keyText.setText(initialKey);
+
+      JLabel clearLabel = new JLabel(
+"<html>Clicking the \"Clear Authentication Settings\" will cause this<br>" +
+"system to stop trying to authenticate with the server. It will not<br>" +
+"release the keys this system was using.");
+      JButton clearButton = new JButton("Clear Authentication Settings");
+      clearButton.addActionListener(new ActionListener() {
+         @Override
+         public void actionPerformed(ActionEvent e) {
+            ServerComms.clearIDs();
+            keyText.setText("");
+         }
+      });
       if (ServerComms.isEnabled()) {
          panel.add(new JLabel(
 "<html>Notifications are already enabled. If you want to stop using this<br>" +
 "system for notifications, you can release its authentication key by<br>" +
 "logging into your account at<br>"), "span, wrap");
          panel.add(siteLabel, "wrap");
-         panel.add(new JLabel(
-"<html>Clicking the \"Clear Authentication Settings\" will cause this<br>" +
-"system to stop trying to authenticate with the server. It will not<br>" +
-"release the keys this system was using."), "span, wrap");
-         JButton clear = new JButton("Clear Authentication Settings");
-         clear.addActionListener(new ActionListener() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-               ServerComms.clearIDs();
-            }
-         });
-         panel.add(clear, "alignx center, wrap");
+         panel.add(clearLabel, "span, wrap");
+         panel.add(clearButton, "alignx center, wrap");
          JOptionPane.showMessageDialog(parent, panel);
          return;
       }
@@ -95,9 +106,10 @@ public class NotificationConfigDialog {
       panel.add(new JLabel(
 "<html>Click the \"Assign\" button, then copy the \"Authorization Key\"<br>" +
 "text on the website into this field:"), "span");
-      JTextField keyText = new JTextField(10);
-      keyText.setText(initialAuthKey);
       panel.add(keyText, "wrap");
+
+      panel.add(clearLabel, "span, wrap");
+      panel.add(clearButton, "alignx center, wrap");
 
       int response = JOptionPane.showConfirmDialog(parent, panel,
             "Input Notification Settings", JOptionPane.OK_CANCEL_OPTION);
@@ -105,11 +117,14 @@ public class NotificationConfigDialog {
          // User cancelled.
          return;
       }
+      if (keyText.getText().equals("")) {
+         // Keys were cleared by Clear Auth Settings button.
+         return;
+      }
+
       boolean succeeded = false;
       try {
-         Integer system = Integer.parseInt(keyText.getText().split(":", 2)[0]);
-         String authKey = keyText.getText().split(":", 2)[1];
-         succeeded = ServerComms.setIDs(system, authKey);
+         succeeded = ServerComms.setIDString(keyText.getText());
       }
       catch (NumberFormatException e) {
          studio.logs().showError("The authorization key is not valid.");
