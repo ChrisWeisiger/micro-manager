@@ -19,12 +19,15 @@
 
 package org.micromanager.notifications.internal;
 
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.Window;
 import java.io.IOException;
 import java.net.ConnectException;
 
+import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
@@ -56,12 +59,24 @@ public class NotificationConfigDialog {
             new Thread(GUIUtils.makeURLRunnable("https://open-imaging.com")).start();
          }
       });
-      if (studio.notifier().getCanUseNotifications()) {
+      if (ServerComms.isEnabled()) {
          panel.add(new JLabel(
 "<html>Notifications are already enabled. If you want to stop using this<br>" +
 "system for notifications, you can release its authentication key by<br>" +
 "logging into your account at<br>"), "span, wrap");
-         panel.add(siteLabel);
+         panel.add(siteLabel, "wrap");
+         panel.add(new JLabel(
+"<html>Clicking the \"Clear Authentication Settings\" will cause this<br>" +
+"system to stop trying to authenticate with the server. It will not<br>" +
+"release the keys this system was using."), "span, wrap");
+         JButton clear = new JButton("Clear Authentication Settings");
+         clear.addActionListener(new ActionListener() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+               ServerComms.clearIDs();
+            }
+         });
+         panel.add(clear, "alignx center, wrap");
          JOptionPane.showMessageDialog(parent, panel);
          return;
       }

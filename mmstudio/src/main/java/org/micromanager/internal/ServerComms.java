@@ -67,7 +67,7 @@ public class ServerComms {
    private static final String SYSTEM_ID = "system ID for communicating with the server";
    private static final String AUTH_KEY = "authentication key for communicating with the server";
    private static final int DEFAULT_SYSTEM_ID = -1;
-   private static final String DEFAULT_AUTH_KEY = "auth";
+   private static final String DEFAULT_AUTH_KEY = "invalid auth key";
 
    private static Studio studio_;
    private static boolean isEnabled_ = false;
@@ -122,6 +122,18 @@ public class ServerComms {
                }
             }
          }).start();
+      }
+   }
+
+   public static void clearIDs() {
+      storeSystemID(DEFAULT_SYSTEM_ID);
+      storeAuthKey(DEFAULT_AUTH_KEY);
+      isEnabled_ = false;
+      try {
+         ((DefaultUserProfile) studio_.profile()).saveGlobalProfile();
+      }
+      catch (IOException e) {
+         studio_.logs().logError(e, "Error saving global profile.");
       }
    }
 
