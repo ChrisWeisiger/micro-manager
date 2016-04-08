@@ -414,39 +414,30 @@ public final class StorageMultipageTiff implements Storage {
          String fullOMEXMLMetadata = omeMetadata_.toString();
          int length = fullOMEXMLMetadata.length();
          String uuid = null, filename = null;
-         FileSet master = null;
-         for (FileSet p : positionToFileSet_.values()) {
-            if (p.hasSpaceForFullOMEXML(length)) {
-               uuid = p.getCurrentUUID();
-               filename = p.getCurrentFilename();
-               p.finished(fullOMEXMLMetadata);
-               master = p;
-               count++;
-               if (progressBar != null) {
-                  progressBar.setProgress(count);
-               }
-               break;
-            }
-         }
 
-         if (uuid == null) {
-             //in the rare case that no files have extra space to fit the full
-             //block of OME XML, generate a file specifically for holding it
-             //that all other files can point to simplest way to do this is to
-             //make a .ome text file
-             filename = "OMEXMLMetadata.ome";
-             uuid = "urn:uuid:" + UUID.randomUUID().toString();
-             PrintWriter pw = new PrintWriter(directory_ + File.separator + filename);
-             pw.print(fullOMEXMLMetadata);
-             pw.close();
+         // We need to store the OME XML. If we have only a single file, then
+         // we want to store the XML in that file if there's room; otherwise
+         // (if there's more than one file, or if the single file is already at
+         // the size limit) we store the XML in an external file that each of
+         // the files refers to.
+         if (positionToFileSet_.size() == 1 &&
+               positionToFileSet_.values().iterator().next().hasSpaceForFullOMEXML(length)) {
+            FileSet set = positionToFileSet_.values().iterator().next();
+            uuid = set.getCurrentUUID();
+            filename = set.getCurrentFilename();
+            set.finished(fullOMEXMLMetadata);
+         }
+         else {
+            filename = "OMEXMLMetadata.companion.ome";
+            uuid = "urn:uuid:" + UUID.randomUUID().toString();
+            PrintWriter pw = new PrintWriter(directory_ + File.separator + filename);
+            pw.print(fullOMEXMLMetadata);
+            pw.close();
          }
 
          String partialOME = OMEMetadata.getOMEStringPointerToMasterFile(filename, uuid);
 
          for (FileSet p : positionToFileSet_.values()) {
-            if (p == master) {
-               continue;
-            }
             p.finished(partialOME);
             count++;
             if (progressBar != null) {
