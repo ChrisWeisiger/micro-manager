@@ -64,8 +64,8 @@ public class DefaultNotificationManager implements NotificationManager {
    private Studio studio_;
    private String contactEmail_ = "";
    private String contactCellphone_ = "";
-   // Threads that we are currently monitoring.
-   private final HashSet<Thread> monitoredThreads_ = new HashSet<Thread>();
+   // Threads that we are currently monitoring, and their unique IDs
+   private final HashMap<Thread, Long> monitoredThreads_ = new HashMap<Thread, Long>();
    // Queue of incoming heartbeats to process.
    private final LinkedBlockingQueue<Thread> heartbeats_ = new LinkedBlockingQueue<Thread>();
    private Thread threadMonitor_ = null;
@@ -106,15 +106,16 @@ public class DefaultNotificationManager implements NotificationManager {
          throw new IllegalArgumentException("Heartbeat timeout " + timeoutMinutes + " is too short");
       }
       Thread thread = Thread.currentThread();
-      if (monitoredThreads_.contains(thread)) {
+      if (monitoredThreads_.containsKey(thread)) {
          throw new IllegalArgumentException("Thread " + thread + " is already being monitored");
       }
       synchronized(monitoredThreads_) {
-         monitoredThreads_.add(thread);
+         monitoredThreads_.put(thread,
+               thread.getId() + System.currentTimeMillis());
       }
       ServerComms.sendRequest("/notify/startMonitor",
             ServerComms.martialParams(
-               "monitor_id", Long.toString(thread.getId()),
+               "monitor_id", Long.toString(monitoredThreads_.get(thread)),
                "failure_text", text, "email", contactEmail_,
                "cellphone", contactCellphone_,
                "timeout_minutes", Integer.toString(timeoutMinutes)));
@@ -127,7 +128,7 @@ public class DefaultNotificationManager implements NotificationManager {
    @Override
    public void stopThreadHeartbeats() throws IOException, ConnectException {
       Thread thread = Thread.currentThread();
-      if (!monitoredThreads_.contains(thread)) {
+      if (!monitoredThreads_.containsKey(thread)) {
          throw new IllegalArgumentException("Thread " + thread + " is not currenty sending heartbeats.");
       }
       synchronized(monitoredThreads_) {
@@ -145,7 +146,7 @@ public class DefaultNotificationManager implements NotificationManager {
          }
       }
       ServerComms.sendRequest("/notify/stopMonitor", ServerComms.martialParams(
-            "monitor_id", Long.toString(thread.getId())));
+            "monitor_id", Long.toString(monitoredThreads_.get(thread))));
    }
 
    @Override
@@ -188,7 +189,8 @@ public class DefaultNotificationManager implements NotificationManager {
             try {
                ServerComms.sendRequest("/notify/heartbeat",
                      ServerComms.martialParams(
-                        "monitor_id", Long.toString(thread.getId())));
+                        "monitor_id",
+                        Long.toString(monitoredThreads_.get(thread))));
             }
             catch (IOException e) {
                studio_.logs().logError(e, "Error sending heartbeat for " + thread.getId());
@@ -196,16 +198,17 @@ public class DefaultNotificationManager implements NotificationManager {
          }
          // Check for threads that have died.
          synchronized(monitoredThreads_) {
-            for (Thread thread : new ArrayList<Thread>(monitoredThreads_)) {
+            for (Thread thread : new ArrayList<Thread>(monitoredThreads_.keySet())) {
                if (!thread.isAlive()) {
                   try {
                      ServerComms.sendRequest("/notify/monitorFailure",
                            ServerComms.martialParams(
-                              "monitor_id", Long.toString(thread.getId())));
+                              "monitor_id",
+                              Long.toString(monitoredThreads_.get(thread))));
                      monitoredThreads_.remove(thread);
                   }
                   catch (IOException e) {
-                     studio_.logs().logError("Error sending thread death for " + thread.getId());
+                     studio_.logs().logError(e, "Error sending thread death for " + thread.getId());
                   }
                }
             }
