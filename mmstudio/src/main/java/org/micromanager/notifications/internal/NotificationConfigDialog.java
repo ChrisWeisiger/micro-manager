@@ -71,7 +71,7 @@ public class NotificationConfigDialog {
       JLabel clearLabel = new JLabel(
 "<html>Clicking the \"Clear Authentication Settings\" will cause this<br>" +
 "system to stop trying to authenticate with the server. It will not<br>" +
-"release the keys this system was using.");
+"release the keys this system was using; you can do that on the website.</html>");
       JButton clearButton = new JButton("Clear Authentication Settings");
       clearButton.addActionListener(new ActionListener() {
          @Override
