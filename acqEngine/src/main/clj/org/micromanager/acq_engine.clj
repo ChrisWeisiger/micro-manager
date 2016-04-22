@@ -788,7 +788,9 @@
       (catch Throwable t
              (def acq-error t) ; for debugging
              ; XXX There ought to be a way to get errors programmatically...
-             (future (ReportingUtils/showError t "Acquisition failed.")))
+             (future (ReportingUtils/showError t "Acquisition failed."))
+             (if (and (:report-failure settings) (.. gui (notifier) getCanUseNotifications))
+               (future (.. gui (notifier) (sendNotification "Acquisition Failed!\nYour acquisition on {system} has failed.")))))
       (finally
         (when cleanup?
           (cleanup))
@@ -828,6 +830,7 @@
               :usePositionList         :use-position-list
               :cameraTimeout           :camera-timeout
               :channelGroup            :channel-group
+              :shouldNotifyOnFailure   :report-failure
               )
             (assoc :frames (range (.numFrames settings))
                    :channels (vec (filter :use-channel
