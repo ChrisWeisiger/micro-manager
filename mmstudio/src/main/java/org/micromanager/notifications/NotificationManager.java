@@ -39,20 +39,29 @@ public interface NotificationManager {
     * Return whether or not this system is capable of performing notifications.
     * To be able to use notifications, the system must have been previously
     * configured with a valid system ID and authentication key via the
-    * Options panel.
+    * Options panel, and the user must have enabled the "Notifications"
+    * checkbox in the Multi-Dimensional Acquisition dialog.
     * @returns Whether or not notifications are possible.
     */
    public boolean getCanUseNotifications();
 
    /**
-    * Send a text notification to the current user. This requires the user
-    * to have provided appropriate contact information via the GUI.
-    * @param text String of the text to send to the user.
+    * Send a notification to the current user. This requires the user
+    * to have provided appropriate contact information via the GUI, in the
+    * Multi-Dimensional Acquisition dialog.
+    * @param text String of the text to send to the user. For emails, the
+    *        first line (up to a newline character) or first 80 characters,
+    *        whichever comes first, will be used as the email subject. For
+    *        SMS messages, the text will be truncated to 140 characters.
+    *        The special text "{system}" will be replaced by the name of this
+    *        microscope system.
     * @throws ConnectException if the server was not reachable. Note that
     *         ConnectException is a subclass of IOException.
     * @throws IOException if there was an error communicating with the server.
+    * @throws NotificationsDisabledException if the user has not enabled
+    *         notifications.
     */
-   public void sendTextAlert(String text) throws IOException, ConnectException;
+   public void sendNotification(String text) throws IOException, ConnectException, NotificationsDisabledException;
 
    /**
     * Enabled thread monitoring for the current thread, and allow sending
@@ -69,8 +78,10 @@ public interface NotificationManager {
     * @throws ConnectException if the server was not reachable. Note that
     *         ConnectException is a subclass of IOException.
     * @throws IOException if there was an error communicating with the server.
+    * @throws NotificationsDisabledException if the user has not enabled
+    *         notifications.
     */
-   public void startThreadHeartbeats(String text, int timeoutMinutes) throws IOException, ConnectException;
+   public void startThreadHeartbeats(String text, int timeoutMinutes) throws IOException, ConnectException, NotificationsDisabledException;
 
    /**
     * Stop sending heartbeat notifications to the server for the current

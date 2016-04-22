@@ -71,6 +71,7 @@ import org.micromanager.internal.utils.NumberUtils;
 import org.micromanager.internal.utils.ReportingUtils;
 import org.micromanager.internal.utils.TooltipTextMaker;
 import org.micromanager.SequenceSettings;
+import org.micromanager.notifications.internal.DefaultNotificationManager;
 import org.micromanager.notifications.internal.NotificationConfigDialog;
 
 /**
@@ -175,7 +176,6 @@ public class AcqControlDlg extends MMFrame implements PropertyChangeListener,
    private static final int ACQ_DEFAULT_COLUMN_WIDTH = 77;
    private static final String CUSTOM_INTERVAL_PREFIX = "customInterval";
    private static final String ACQ_ENABLE_CUSTOM_INTERVALS = "enableCustomIntervals";
-   private static final String IS_NOTIFY_ON = "notify user about acquisitions";
    private static final String NOTIFY_ON_FAILURE = "notify user when acquisition fails";
    private static final String NOTIFY_ON_COMPLETION = "notify user when acquisition ends";
    private static final String NOTIFY_EMAIL = "email to use to notify user";
@@ -870,6 +870,15 @@ public class AcqControlDlg extends MMFrame implements PropertyChangeListener,
 
    private CheckBoxPanel createNotifyPanel() {
       notifyPanel_ = createCheckBoxPanel("Notifications");
+      // Toggle enabled-ness of notifications when the panel checkbox is
+      // clicked.
+      notifyPanel_.checkBox.addActionListener(new ActionListener() {
+         @Override
+         public void actionPerformed(ActionEvent e) {
+            ((DefaultNotificationManager) studio_.notifier()).setEnabled(
+            notifyPanel_.isEnabled());
+         }
+      });
       notifyPanel_.setLayout(new MigLayout(PANEL_CONSTRAINT + ", flowy",
                "[grow, fill]"));
       notifyPanel_.setToolTipText("Send you an email or text notification when your acquisition ends.");
@@ -1263,16 +1272,14 @@ public class AcqControlDlg extends MMFrame implements PropertyChangeListener,
       String os_name = System.getProperty("os.name", "");
       rootField_.setText(profile.getString(this.getClass(), ACQ_ROOT_NAME, System.getProperty("user.home") + "/AcquisitionData"));
 
-      notifyPanel_.setSelected(profile.getBoolean(this.getClass(),
-               IS_NOTIFY_ON, false));
+      DefaultNotificationManager notifier = (DefaultNotificationManager) studio_.notifier();
+      notifyPanel_.setSelected(notifier.getEnabled());
       notifyOnFailure_.setSelected(profile.getBoolean(this.getClass(),
                NOTIFY_ON_FAILURE, true));
       notifyOnCompletion_.setSelected(profile.getBoolean(this.getClass(),
                NOTIFY_ON_COMPLETION, false));
-      notifyEmail_.setText(
-            profile.getString(this.getClass(), NOTIFY_EMAIL, ""));
-      notifyCellphone_.setText(
-            profile.getString(this.getClass(), NOTIFY_CELLPHONE, ""));
+      notifyEmail_.setText(notifier.getContactEmail());
+      notifyCellphone_.setText(notifier.getContactCellphone());
 
       acqEng_.setAcqOrderMode(profile.getInt(this.getClass(), ACQ_ORDER_MODE, acqEng_.getAcqOrderMode()));
 
@@ -1931,10 +1938,16 @@ public class AcqControlDlg extends MMFrame implements PropertyChangeListener,
 
       acqEng_.setComment(commentTextArea_.getText());
       acqEng_.enableAutoFocus(afPanel_.isSelected());
-      acqEng_.setNotifyOnFailure(notifyOnFailure_.isSelected());
-      acqEng_.setNotifyOnCompletion(notifyOnCompletion_.isSelected());
+      acqEng_.setNotifyOnFailure(
+            notifyPanel_.isSelected() && notifyOnFailure_.isSelected());
+      acqEng_.setNotifyOnCompletion(
+            notifyPanel_.isSelected() && notifyOnCompletion_.isSelected());
       acqEng_.setNotifyEmail(notifyEmail_.getText());
       acqEng_.setNotifyCellphone(notifyCellphone_.getText());
+      DefaultNotificationManager notifier = (DefaultNotificationManager) studio_.notifier();
+      notifier.setEnabled(notifyPanel_.isSelected());
+      notifier.setContactEmail(notifyEmail_.getText());
+      notifier.setContactCellphone(notifyCellphone_.getText());
 
       acqEng_.setShouldDisplayImages(!getShouldHideMDADisplay());
 

@@ -47,6 +47,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import org.micromanager.notifications.NotificationManager;
+import org.micromanager.notifications.NotificationsDisabledException;
 
 import org.micromanager.PropertyMap;
 import org.micromanager.Studio;
@@ -56,12 +57,14 @@ import org.micromanager.internal.utils.MDUtils;
 
 
 public class DefaultNotificationManager implements NotificationManager {
+   private static final String NOTIFICATIONS_ENABLED = "whether user wants notifications to be enabled";
    private static final String CONTACT_EMAIL = "email address to send notifications to";
    private static final String CONTACT_CELLPHONE = "cellphone to send notifications to";
 
    private static final Integer MONITOR_SLEEP_TIME = 3000;
 
    private Studio studio_;
+   private boolean isEnabled_ = false;
    private String contactEmail_ = "";
    private String contactCellphone_ = "";
    // Threads that we are currently monitoring, and their unique IDs
@@ -72,10 +75,23 @@ public class DefaultNotificationManager implements NotificationManager {
 
    public DefaultNotificationManager(Studio studio) {
       studio_ = studio;
+      isEnabled_ = studio_.profile().getBoolean(
+            DefaultNotificationManager.class, NOTIFICATIONS_ENABLED, false);
       contactEmail_ = studio_.profile().getString(
-               DefaultNotificationManager.class, CONTACT_EMAIL, "");
+            DefaultNotificationManager.class, CONTACT_EMAIL, "");
       contactCellphone_ = studio_.profile().getString(
-               DefaultNotificationManager.class, CONTACT_CELLPHONE, "");
+            DefaultNotificationManager.class, CONTACT_CELLPHONE, "");
+      isEnabled_ = getCanUseNotifications();
+   }
+
+   public boolean getEnabled() {
+      return isEnabled_;
+   }
+
+   public void setEnabled(boolean isEnabled) {
+      isEnabled_ = isEnabled;
+      studio_.profile().setBoolean(DefaultNotificationManager.class,
+            NOTIFICATIONS_ENABLED, isEnabled);
    }
 
    public void setContactCellphone(String cellphone) {
@@ -84,26 +100,50 @@ public class DefaultNotificationManager implements NotificationManager {
             CONTACT_CELLPHONE, cellphone);
    }
 
+   public String getContactCellphone() {
+      return contactCellphone_;
+   }
+
    public void setContactEmail(String email) {
       contactEmail_ = email;
       studio_.profile().setString(DefaultNotificationManager.class,
             CONTACT_EMAIL, email);
    }
 
+   public String getContactEmail() {
+      return contactEmail_;
+   }
+
+   /**
+    * We can use notifications if this is an authenticated system with the
+    * server, the user has enabled notifications, and the user has provided a
+    * cellphone or email address.
+    */
    @Override
    public boolean getCanUseNotifications() {
-      return ServerComms.isEnabled();
+      return ServerComms.isEnabled() && isEnabled_ &&
+         ((contactCellphone_ != null && contactCellphone_.length() > 0) ||
+          (contactEmail_ != null && contactEmail_.length() > 0));
    }
 
    @Override
-   public void sendTextAlert(String text) throws IOException, ConnectException {
-      studio_.logs().showError("sendTextAlert is not yet implemented");
+   public void sendNotification(String text) throws IOException, ConnectException, NotificationsDisabledException {
+      if (!getCanUseNotifications()) {
+         throw new NotificationsDisabledException();
+      }
+      ServerComms.sendRequest("/notify/sendNotification",
+            ServerComms.martialParams(
+               "email", contactEmail_, "cellphone", contactCellphone_,
+               "message", text));
    }
 
    @Override
-   public void startThreadHeartbeats(String text, int timeoutMinutes) throws IOException, ConnectException {
+   public void startThreadHeartbeats(String text, int timeoutMinutes) throws IOException, ConnectException, NotificationsDisabledException {
       if (timeoutMinutes < 2) {
          throw new IllegalArgumentException("Heartbeat timeout " + timeoutMinutes + " is too short");
+      }
+      if (!getCanUseNotifications()) {
+         throw new NotificationsDisabledException();
       }
       Thread thread = Thread.currentThread();
       if (monitoredThreads_.containsKey(thread)) {
