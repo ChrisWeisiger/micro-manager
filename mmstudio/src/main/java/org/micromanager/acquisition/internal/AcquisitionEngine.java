@@ -476,4 +476,16 @@ public interface AcquisitionEngine {
    public boolean getZAbsoluteMode();
 
    public void setShouldDisplayImages(boolean shouldDisplay);
+
+   /**
+    * If notifications are enabled, notify the user that their acquisition
+    * failed.
+    */
+   public void notifyFailure();
+
+   /**
+    * If notifications are enabled, notify the user that their acquisition
+    * completed successfully.
+    */
+   public void notifyCompletion();
 }

@@ -50,49 +50,55 @@ public class DefaultTaggedImageSink  {
 
          @Override
          public void run() {
-            long t1 = System.currentTimeMillis();
-            int imageCount = 0;
-            try {
-               while (true) {
-                  TaggedImage tagged = imageProducingQueue_.poll(1, TimeUnit.SECONDS);
-                  if (tagged != null) {
-                     if (TaggedImageQueue.isPoison(tagged)) {
-                        // Acquisition has ended.
-                        pipeline_.halt();
-                        DefaultEventManager.getInstance().post(
-                              new DefaultAcquisitionEndedEvent(
-                                 store_, engine_));
-                        break;
-                     }
-                     try {
-                        ++imageCount;
-                        DefaultImage image = new DefaultImage(tagged);
-                        try {
-                           pipeline_.insertImage(image);
-                        }
-                        catch (PipelineErrorException e) {
-                           // TODO: make showing the dialog optional.
-                           // TODO: allow user to cancel acquisition from
-                           // here.
-                           ReportingUtils.showError(e,
-                                 "There was an error in processing images.");
-                           pipeline_.clearExceptions();
-                        }
-                     }
-                     catch (OutOfMemoryError e) {
-                        handleOutOfMemory(e, sinkFullCallback);
-                        break;
-                     }
-                  }
-               }
-            } catch (Exception ex2) {
-               ReportingUtils.logError(ex2);
-            }
-            long t2 = System.currentTimeMillis();
-            ReportingUtils.logMessage(imageCount + " images stored in " + (t2 - t1) + " ms.");
+            consumeImages(sinkFullCallback);
          }
       };
       savingThread.start();
+   }
+
+   private void consumeImages(final Runnable sinkFullCallback) {
+      long t1 = System.currentTimeMillis();
+      int imageCount = 0;
+      try {
+         while (true) {
+            TaggedImage tagged = imageProducingQueue_.poll(1, TimeUnit.SECONDS);
+            if (tagged != null) {
+               if (TaggedImageQueue.isPoison(tagged)) {
+                  // Acquisition has ended.
+                  pipeline_.halt();
+                  DefaultEventManager.getInstance().post(
+                        new DefaultAcquisitionEndedEvent(
+                           store_, engine_));
+                  engine_.notifyCompletion();
+                  break;
+               }
+               try {
+                  ++imageCount;
+                  DefaultImage image = new DefaultImage(tagged);
+                  try {
+                     pipeline_.insertImage(image);
+                  }
+                  catch (PipelineErrorException e) {
+                     // TODO: make showing the dialog optional.
+                     // TODO: allow user to cancel acquisition from
+                     // here.
+                     ReportingUtils.showError(e,
+                           "There was an error in processing images.");
+                     pipeline_.clearExceptions();
+                  }
+               }
+               catch (OutOfMemoryError e) {
+                  handleOutOfMemory(e, sinkFullCallback);
+                  engine_.notifyFailure();
+                  break;
+               }
+            }
+         }
+      } catch (Exception ex2) {
+         ReportingUtils.logError(ex2);
+      }
+      long t2 = System.currentTimeMillis();
+      ReportingUtils.logMessage(imageCount + " images stored in " + (t2 - t1) + " ms.");
    }
 
    // Never called from EDT

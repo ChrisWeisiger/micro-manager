@@ -190,19 +190,7 @@ public class AcquisitionWrapperEngine implements AcquisitionEngine {
          ReportingUtils.showError(ex);
          studio_.events().post(new DefaultAcquisitionEndedEvent(
                   curStore_, this));
-         if (acquisitionSettings.shouldNotifyOnFailure) {
-            try {
-               studio_.notifier().sendNotification(
-                     "Acquisition Failed!\nYour acquisition on {system} started at " + curStore_.getSummaryMetadata().getStartDate() + " has failed.");
-            }
-            catch (IOException e) {
-               studio_.logs().logError(e, "Unable to send failure message to user");
-            }
-            catch (NotificationsDisabledException e) {
-               // Indicates incorrectly-setup SequenceSettings.
-               studio_.logs().logError("Sequence settings indicated to notify on failure, but notifications are disabled.");
-            }
-         }
+         notifyFailure();
          return null;
       }
    }
@@ -1106,6 +1094,33 @@ public class AcquisitionWrapperEngine implements AcquisitionEngine {
    @Override
    public String getComment() {
        return this.comment_;
+   }
+
+   @Override
+   public void notifyFailure() {
+      if (notifyOnFailure_) {
+         notify("Acquisition Failed!\nYour acquisition on {system} started at " + curStore_.getSummaryMetadata().getStartDate() + " has failed.");
+      }
+   }
+
+   @Override
+   public void notifyCompletion() {
+      if (notifyOnCompletion_) {
+         notify("Acquisition Completed!\nYour acquisition on {system} started at " + curStore_.getSummaryMetadata().getStartDate() + " has completed successfully.");
+      }
+   }
+
+   private void notify(String text) {
+      try {
+         studio_.notifier().sendNotification(text);
+      }
+      catch (IOException e) {
+         studio_.logs().logError(e, "Unable to send message to user");
+      }
+      catch (NotificationsDisabledException e) {
+         // Indicates incorrectly-setup SequenceSettings.
+         studio_.logs().logError("Sequence settings indicated to notify, but notifications are disabled.");
+      }
    }
 
    @Subscribe
