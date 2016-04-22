@@ -5,6 +5,7 @@ import com.google.common.eventbus.Subscribe;
 
 import java.awt.Color;
 import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -33,6 +34,7 @@ import org.micromanager.events.internal.DefaultAcquisitionEndedEvent;
 import org.micromanager.events.internal.DefaultAcquisitionStartedEvent;
 import org.micromanager.events.internal.DefaultEventManager;
 import org.micromanager.events.internal.InternalShutdownCommencingEvent;
+import org.micromanager.notifications.NotificationsDisabledException;
 import org.micromanager.internal.dialogs.AcqControlDlg;
 import org.micromanager.internal.interfaces.AcqSettingsListener;
 import org.micromanager.internal.MMStudio;
@@ -188,6 +190,19 @@ public class AcquisitionWrapperEngine implements AcquisitionEngine {
          ReportingUtils.showError(ex);
          studio_.events().post(new DefaultAcquisitionEndedEvent(
                   curStore_, this));
+         if (acquisitionSettings.shouldNotifyOnFailure) {
+            try {
+               studio_.notifier().sendNotification(
+                     "Acquisition Failed!\nYour acquisition on {system} started at " + curStore_.getSummaryMetadata().getStartDate() + " has failed.");
+            }
+            catch (IOException e) {
+               studio_.logs().logError(e, "Unable to send failure message to user");
+            }
+            catch (NotificationsDisabledException e) {
+               // Indicates incorrectly-setup SequenceSettings.
+               studio_.logs().logError("Sequence settings indicated to notify on failure, but notifications are disabled.");
+            }
+         }
          return null;
       }
    }
