@@ -71,6 +71,7 @@ import org.micromanager.internal.utils.NumberUtils;
 import org.micromanager.internal.utils.ReportingUtils;
 import org.micromanager.internal.utils.TooltipTextMaker;
 import org.micromanager.SequenceSettings;
+import org.micromanager.notifications.NotificationsDisabledException;
 import org.micromanager.notifications.internal.DefaultNotificationManager;
 import org.micromanager.notifications.internal.NotificationConfigDialog;
 
@@ -913,9 +914,48 @@ public class AcqControlDlg extends MMFrame implements PropertyChangeListener,
             NotificationConfigDialog.show(AcqControlDlg.this, studio_);
          }
       });
-      notifyPanel_.add(setupButton, "width 120!, spany, wrap");
+      notifyPanel_.add(setupButton, "spany, wrap");
+
+      JButton testButton = new JButton("Test");
+      testButton.setToolTipText("Send a test message to your email and/or cellphone to verify that messages will get through.");
+      testButton.addActionListener(new ActionListener() {
+         @Override
+         public void actionPerformed(ActionEvent ignored) {
+            sendTestNotification();
+         }
+      });
+      notifyPanel_.add(testButton, "spany, wrap");
 
       return notifyPanel_;
+   }
+
+   private void sendTestNotification() {
+      if (areNotificationSettingsValid()) {
+         try {
+            studio_.notifier().sendNotification(
+               "This is a test message from {system}.");
+            String target = "";
+            if (notifyEmail_.getText() != null && notifyCellphone_.getText() == null) {
+               target = "email";
+            }
+            else if (notifyEmail_.getText() == null && notifyCellphone_.getText() != null) {
+               target = "cellphone";
+            }
+            else {
+               target = "email and cellphone";
+            }
+            JOptionPane.showMessageDialog(this,
+               "A message has been sent to your " + target + ". Please check your messages.");
+         }
+         catch (IOException e) {
+            studio_.logs().showError(e, "There was an error in sending your notification.");
+         }
+         catch (NotificationsDisabledException e) {
+            // This *should* be impossible since the button that calls this
+            // function is disabled if notifications are disabled.
+            studio_.logs().showError(e, "Notifications are disabled.");
+         }
+      }
    }
 
    private JPanel createCommentsPanel() {
@@ -1665,6 +1705,26 @@ public class AcqControlDlg extends MMFrame implements PropertyChangeListener,
       return true;
    }
 
+   private boolean areNotificationSettingsValid() {
+      if (notifyPanel_.isSelected()) {
+         if (!studio_.notifier().getCanUseNotifications()) {
+            JOptionPane.showMessageDialog(this,
+                  "This system is not able to use notifications. Please click the Enable Notifications button to set up notifications.");
+            return false;
+         }
+         if (notifyEmail_.getText().equals("") &&
+               notifyCellphone_.getText().equals("")) {
+            JOptionPane.showMessageDialog(this,
+                  "Please provide either an email address or cellphone number to send notifications to.");
+            return false;
+         }
+         // TODO: do we want to try to validate the email address? Of course,
+         // the only true way to validate an address is to try to send mail
+         // to it...
+      }
+      return true;
+   }
+
    public Datastore runAcquisition() {
       if (acqEng_.isAcquisitionRunning()) {
          JOptionPane.showMessageDialog(this, "Cannot start acquisition: previous acquisition still in progress.");
@@ -1676,21 +1736,8 @@ public class AcqControlDlg extends MMFrame implements PropertyChangeListener,
       }
 
       // Double-check notification settings.
-      if (notifyPanel_.isSelected()) {
-         if (!studio_.notifier().getCanUseNotifications()) {
-            JOptionPane.showMessageDialog(this,
-                  "This system is not able to use notifications. Please click the Enable Notifications button to set up notifications.");
-            return null;
-         }
-         if (notifyEmail_.getText().equals("") &&
-               notifyCellphone_.getText().equals("")) {
-            JOptionPane.showMessageDialog(this,
-                  "Please provide either an email address or cellphone number to send notifications to.");
-            return null;
-         }
-         // TODO: do we want to try to validate the email address? Of course,
-         // the only true way to validate an address is to try to send mail
-         // to it...
+      if (!areNotificationSettingsValid()) {
+         return null;
       }
 
       try {
