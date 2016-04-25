@@ -240,6 +240,7 @@ public class DefaultNotificationManager implements NotificationManager {
          synchronized(monitoredThreads_) {
             for (Thread thread : new ArrayList<Thread>(monitoredThreads_.keySet())) {
                if (!thread.isAlive()) {
+                  studio_.logs().logError("Thread " + thread.getName() + " has died");
                   try {
                      ServerComms.sendRequest("/notify/monitorFailure",
                            ServerComms.martialParams(
