@@ -250,6 +250,10 @@ public class DefaultNotificationManager implements NotificationManager {
                   }
                   catch (IOException e) {
                      studio_.logs().logError(e, "Error sending thread death for " + thread.getId());
+                     if (e.toString().contains("SMS limit cap exceeded")) {
+                        // Stop trying to send notifications for this thread.
+                        monitoredThreads_.remove(thread);
+                     }
                   }
                }
             }
