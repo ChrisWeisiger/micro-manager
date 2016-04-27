@@ -64,6 +64,19 @@ public interface NotificationManager {
    public void sendNotification(String text) throws IOException, ConnectException, NotificationsDisabledException;
 
    /**
+    * Return the remaining number of SMS text messages that may be sent to
+    * the user's cellphone. Each subscription has a cap on SMS messages, with
+    * a 30-day rolling window; if the cap is exceeded, then attempts to send
+    * SMS messages (e.g. via sendNotification()) will throw an IOException.
+    * @return Remaining number of text messages that may be sent before the cap
+    *         is exceeded.
+    * @throws ConnectException if the server was not reachable. Note that
+    *         ConnectException is a subclass of IOException.
+    * @throws IOException if there was an error communicating with the server.
+    */
+   public int getRemainingSMSMessages() throws IOException, ConnectException;
+
+   /**
     * Enabled thread monitoring for the current thread, and allow sending
     * heartbeat notifications to the server, with the specified timeout. If the
     * thread stops without having called stopHeartbeats(), or the server fails

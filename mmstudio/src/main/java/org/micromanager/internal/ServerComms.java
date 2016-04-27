@@ -181,7 +181,7 @@ public class ServerComms {
          params.put("auth_key", authKey);
          params.put("mac_address", macAddress_);
          try {
-            isEnabled_ = sendRequest("/notify/testKey", params);
+            isEnabled_ = sendRequest("/notify/testKey", params).contentEquals("Key is valid");
             if (isEnabled_) {
                systemId_ = systemId;
                authKey_ = authKey;
@@ -283,13 +283,14 @@ public class ServerComms {
    }
 
    /**
-    * Internal utility function: send a request to the server.
+    * Send a request to the server. Throws IOException if the server returns
+    * an error code, otherwise returns the contents of the response.
     */
-   public static boolean sendRequest(String path, JSONObject params) throws IOException, ConnectException {
+   public static String sendRequest(String path, JSONObject params) throws IOException, ConnectException {
       if (params == null) {
          // HACK: this check is because martialParams, above, returns null when
          // implausible things go wrong.
-         return false;
+         throw new IllegalArgumentException("Null parameters list");
       }
       try {
          URL url = new URL(DEFAULT_SERVER + path);
@@ -301,9 +302,7 @@ public class ServerComms {
          out.write(params.toString().getBytes(CHARSET));
          // Actually perform the post.
          int responseCode = connection.getResponseCode();
-         if (responseCode >= 200 && responseCode <= 299) {
-            return true;
-         }
+         boolean succeeded = responseCode >= 200 && responseCode <= 299;
          // Read any error message from the server and throw an IOException
          // with the error as the contents.
          InputStream stream = connection.getErrorStream();
@@ -312,25 +311,29 @@ public class ServerComms {
          }
          BufferedReader reader = new BufferedReader(
                new InputStreamReader(stream));
-         String error = "";
+         String response = "";
          while (true) {
             String line = reader.readLine();
             if (line == null) {
                break;
             }
-            error += line;
+            response += line;
          }
-         // Some of our errors can be JSONObjects; convert and pretty-print if
+         // Some of our responses can be JSONObjects; convert and pretty-print if
          // possible.
          try {
-            error = new JSONObject(error).toString(2);
+            response = new JSONObject(response).toString(2);
          }
          catch (JSONException ignored) {}
-         throw new IOException(error);
+         if (succeeded) {
+            return response;
+         }
+         throw new IOException(response);
       }
       catch (MalformedURLException e) {
-         studio_.logs().logError(e, "Bad URL format " + path);
-         return false;
+         // This should only be possible if the path was badly-formatted
+         // (i.e. assume that DEFAULT_SERVER is valid).
+         throw new IllegalArgumentException("Invalid input path " + path + ": " + e.toString());
       }
    }
 

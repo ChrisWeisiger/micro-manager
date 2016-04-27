@@ -138,6 +138,13 @@ public class DefaultNotificationManager implements NotificationManager {
    }
 
    @Override
+   public int getRemainingSMSMessages() throws IOException, ConnectException {
+      String response = ServerComms.sendRequest("/notify/getRemainingSMS",
+            ServerComms.martialParams());
+      return Integer.parseInt(response);
+   }
+
+   @Override
    public void startThreadHeartbeats(String text, int timeoutMinutes) throws IOException, ConnectException, NotificationsDisabledException {
       if (timeoutMinutes < 2) {
          throw new IllegalArgumentException("Heartbeat timeout " + timeoutMinutes + " is too short");
