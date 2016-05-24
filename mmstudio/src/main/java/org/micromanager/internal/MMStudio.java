@@ -404,18 +404,17 @@ public class MMStudio implements Studio, CompatibilityInterface, PositionListMan
       frame_.paintToFront();
       staticInfo_ = new StaticInfo(core_, frame_);
 
-      if (IntroDlg.getShouldAskForConfigFile() ||
-            !DefaultUserProfile.getShouldAlwaysUseDefaultProfile()) {
-         // Ask the user for a configuration file and/or user profile.
-         IntroDlg introDlg = new IntroDlg(this, sysConfigFile_,
+      // Show the intro dialog, which asks the user for a configuration file
+      // and/or user profile.
+      IntroDlg introDlg = new IntroDlg(this, sysConfigFile_,
                MMVersion.VERSION_STRING);
-         if (!introDlg.okChosen()) {
-            // User aborted; close the program down.
-            closeSequence(false);
-            return;
-         }
-         sysConfigFile_ = introDlg.getConfigFile();
+      if (!introDlg.okChosen()) {
+         // User aborted; close the program down.
+         closeSequence(false);
+         return;
       }
+      sysConfigFile_ = introDlg.getConfigFile();
+
       // Now that profile is selected, set the look and feel for everything.
       DaytimeNighttime.setMode(DaytimeNighttime.getBackgroundMode());
 
