@@ -46,11 +46,18 @@ public abstract class BrandPlugin implements MMPlugin {
 
    /**
     * Provide the contents of the intro dialog, except for the cancel/OK
-    * buttons.
-    * @param profileSelect A dropdown menu to select the user profile
-    * @param profileDelete A button to delete the current profile
-    * @param configSelect A dropdown menu to select the hardware config file
-    * @param configBrowse A button to browse for a new config file
+    * buttons. Note that these components may be null, in which case the space
+    * they take up in the intro dialog should be left blank. This happens when
+    * the "ask for config file at startup" and "always use default profile"
+    * options are modified in the Options dialog.
+    * @param profileSelect A dropdown menu to select the user profile. May be
+    *        null, in which case profileDelete will also be null.
+    * @param profileDelete A button to delete the current profile. May be null,
+    *        in which case profileSelect will also be null.
+    * @param configSelect A dropdown menu to select the hardware config file.
+    *        May be null, in which case configBrowse will also be null.
+    * @param configBrowse A button to browse for a new config file. May be
+    *        null, in which case configSelect will also be null.
     */
    public abstract JPanel getIntroDialogPanel(JComboBox profileSelect,
          JButton profileDelete, JComboBox configSelect, JButton configBrowse);

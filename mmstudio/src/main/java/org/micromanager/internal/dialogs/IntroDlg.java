@@ -116,8 +116,21 @@ public class IntroDlg extends JDialog {
         ((JPanel) getContentPane()).setBorder(BorderFactory.createLineBorder(Color.GRAY));
       }
 
-      add(plugin_.getIntroDialogPanel(profileSelect_, profileDeleteButton_,
-            configSelect_, fileBrowseButton_), "spanx, wrap");
+      // These components should be null if certain options are set.
+      JComboBox profileSelect = profileSelect_;
+      JButton profileDelete = profileDeleteButton_;
+      if (DefaultUserProfile.getShouldAlwaysUseDefaultProfile()) {
+         profileSelect = null;
+         profileDelete = null;
+      }
+      JComboBox configSelect = configSelect_;
+      JButton configBrowse = fileBrowseButton_;
+      if (!getShouldAskForConfigFile()) {
+         configSelect = null;
+         configBrowse = null;
+      }
+      add(plugin_.getIntroDialogPanel(profileSelect, profileDelete,
+            configSelect, configBrowse), "spanx, wrap");
 
       final JButton licenseButton = new JButton("License Info");
       licenseButton.setFont(textFont);

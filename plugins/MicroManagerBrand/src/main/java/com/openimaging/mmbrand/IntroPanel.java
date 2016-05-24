@@ -48,20 +48,26 @@ public class IntroPanel extends JPanel {
 
       Font stdFont = new Font("Arial", Font.PLAIN, 10);
 
-      JLabel profileLabel = new JLabel("User Profile:");
-      profileLabel.setFont(stdFont);
-      add(profileLabel, "split, spanx, gapleft rel");
-      profileSelect.setFont(stdFont);
-      add(profileSelect, "width 150!");
-      profileDelete.setFont(stdFont);
-      add(profileDelete);
+      if (profileSelect != null) {
+         JLabel profileLabel = new JLabel("User Profile:");
+         profileLabel.setFont(stdFont);
+         add(profileLabel, "split, spanx, gapleft rel");
+         profileSelect.setFont(stdFont);
+         add(profileSelect, "width 150!");
+         profileDelete.setFont(stdFont);
+         add(profileDelete);
+      }
 
-      JLabel fileLabel = new JLabel("Configuration file:");
-      fileLabel.setFont(stdFont);
-      add(fileLabel, "gapleft push");
-      configSelect.setFont(stdFont);
-      add(configSelect, "width 250!");
-      configBrowse.setFont(stdFont);
-      add(configBrowse, "wrap");
+      if (configSelect != null) {
+         JLabel fileLabel = new JLabel("Configuration file:");
+         fileLabel.setFont(stdFont);
+         // Extra parameters are needed if there's nothing to our left.
+         add(fileLabel,
+               (profileSelect == null ? "split, spanx, " : "") + "gapleft push");
+         configSelect.setFont(stdFont);
+         add(configSelect, "width 250!");
+         configBrowse.setFont(stdFont);
+         add(configBrowse, "wrap");
+      }
    }
 }

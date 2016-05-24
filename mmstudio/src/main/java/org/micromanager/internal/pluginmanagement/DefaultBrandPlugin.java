@@ -58,13 +58,17 @@ public class DefaultBrandPlugin extends BrandPlugin {
          JButton profileDelete, JComboBox configSelect, JButton configBrowse) {
       JPanel result = new JPanel(new MigLayout());
 
-      result.add(new JLabel("Profile:"));
-      result.add(profileSelect, "width 320!");
-      result.add(profileDelete, "wrap");
+      if (profileSelect != null) {
+         result.add(new JLabel("Profile:"));
+         result.add(profileSelect, "width 320!");
+         result.add(profileDelete, "wrap");
+      }
 
-      result.add(new JLabel("Config:"));
-      result.add(configSelect, "width 320!");
-      result.add(configBrowse, "wrap");
+      if (configSelect != null) {
+         result.add(new JLabel("Config:"));
+         result.add(configSelect, "width 320!");
+         result.add(configBrowse, "wrap");
+      }
 
       return result;
    }
